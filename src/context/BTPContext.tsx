@@ -24,6 +24,34 @@ import { numberToWordsDZ } from '../utils/dzFormatters';
 // SCÉNARIO EXACT DE LA VIDÉO DINATECK (01:10 → 07:28)
 const INITIAL_MARKETS: Market[] = [
   {
+    id: 'm-ecole-sba',
+    type: 'Marché Public',
+    number: '2026/14/DEP/SBA',
+    title: 'Réalisation d\'un Groupe Scolaire Type Base 3 (École Primaire) — 12 Salles de Classe, Demi-Pension & Logements d\'Astreinte',
+    client: 'Direction des Équipements Publics (DEP) Sidi Bel Abbès',
+    bet: 'BET Archi-Structures Sidi Bel Abbès',
+    enterpriseName: 'EGBTP ARCHILAB DZ',
+    wilaya: '22',
+    commune: 'Sidi Bel Abbès (Rocade Sud)',
+    signatureDate: '2026-01-10',
+    odsDate: '2026-02-01',
+    durationMonths: 14,
+    status: 'En cours',
+    tvaRate: 9, // Taux préférentiel de TVA pour les infrastructures scolaires et universitaires DZ
+    retenueGarantieRate: 5, // 5% Marchés Publics DZ
+    avanceForfaitaireRate: 15,
+    avanceApproRate: 20,
+    initialAmountHT: 114678899, // 114 678 899 DA HT + TVA 9% (10 321 101 DA) = Exactement 125 000 000 DA TTC
+    currentAmountHT: 114678899,
+    bankGuarantees: {
+      soumission: 1250000,
+      bonneExecution: 5733945, // 5%
+      restitutionAvance: 17201835, // 15%
+      bankName: 'BNA Agence 412 Sidi Bel Abbès',
+      expiryDate: '2027-06-30'
+    }
+  },
+  {
     id: 'm-r5',
     type: 'Marché Public',
     number: '2026/04/OPGI',
@@ -83,12 +111,23 @@ const INITIAL_MARKETS: Market[] = [
 
 // ARBORESCENCE DU CAHIER DES CHARGES : LOTS
 const INITIAL_LOTS: Lot[] = [
+  // LOTS GROUPE SCOLAIRE BASE 3 (DEP SIDI BEL ABBÈS - 125M DA TTC)
+  { id: 'lot-ecole-01', marketId: 'm-ecole-sba', code: 'LOT 01', name: 'Gros Œuvres, Fondations & Superstructure École' },
+  { id: 'lot-ecole-02', marketId: 'm-ecole-sba', code: 'LOT 02', name: 'Corps d\'État Secondaires (CES, Maçonnerie & Finitions)' },
+  { id: 'lot-ecole-03', marketId: 'm-ecole-sba', code: 'LOT 03', name: 'VRD, Assainissement, Cour & Clôture Défensive' },
+  // LOTS MARCHÉ R+5
   { id: 'lot-01', marketId: 'm-r5', code: 'LOT 01', name: 'Gros Œuvres & Terrassement' },
   { id: 'lot-02', marketId: 'm-r5', code: 'LOT 02', name: 'Corps d\'État Secondaires (CES)' }
 ];
 
 // ARBORESCENCE DU CAHIER DES CHARGES : SECTIONS
 const INITIAL_SECTIONS: Section[] = [
+  // SECTIONS GROUPE SCOLAIRE
+  { id: 'sec-ecole-01', lotId: 'lot-ecole-01', code: 'Section 1', name: 'Terrassements Généraux & Fondations Spéciales' },
+  { id: 'sec-ecole-02', lotId: 'lot-ecole-01', code: 'Section 2', name: 'Superstructure R+1, Poteaux, Poutres & Dalles' },
+  { id: 'sec-ecole-03', lotId: 'lot-ecole-02', code: 'Section 3', name: 'Maçonnerie Briques Doubles Parois & Enduits' },
+  { id: 'sec-ecole-04', lotId: 'lot-ecole-03', code: 'Section 4', name: 'Réseaux d\'Assainissement & Clôture Défensive' },
+  // SECTIONS MARCHÉ R+5
   { id: 'sec-01', lotId: 'lot-01', code: 'Section 1', name: 'Infrastructure & Fondations' },
   { id: 'sec-02', lotId: 'lot-01', code: 'Section 2', name: 'Assainissement, Regards & Caniveaux' },
   { id: 'sec-03', lotId: 'lot-01', code: 'Section 3', name: 'Superstructure Béton Armé R+5' }
@@ -96,6 +135,158 @@ const INITIAL_SECTIONS: Section[] = [
 
 // ARTICLES DU CAHIER DES CHARGES (AVEC ARTICLES 4.2 ET 4.5 EXACTS DE LA VIDÉO)
 const INITIAL_ARTICLES: DQEArticle[] = [
+  // ARTICLES DQE GROUPE SCOLAIRE 125M DA TTC (DEP SIDI BEL ABBÈS)
+  {
+    id: 'art-ec-01',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-01',
+    sectionId: 'sec-ecole-01',
+    code: '1.01',
+    designation: 'Fouilles en pleine masse et en rigoles dans terrain ordinaire et rocheux pour fondations école',
+    unit: 'm³',
+    initialQuantity: 1850,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 1850,
+    unitPriceHT: 750,
+    previousExecutedQty: 1850,
+    totalExecutedQty: 1850
+  },
+  {
+    id: 'art-ec-02',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-01',
+    sectionId: 'sec-ecole-01',
+    code: '1.02',
+    designation: 'Béton de propreté dosé à 150 kg/m³ de ciment CPJ 42.5 sous semelles isolées',
+    unit: 'm³',
+    initialQuantity: 160,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 160,
+    unitPriceHT: 9500,
+    previousExecutedQty: 160,
+    totalExecutedQty: 160
+  },
+  {
+    id: 'art-ec-03',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-01',
+    sectionId: 'sec-ecole-01',
+    code: '1.03',
+    designation: 'Gros béton de calage et de rattrapage de niveau dosé à 250 kg/m³',
+    unit: 'm³',
+    initialQuantity: 280,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 280,
+    unitPriceHT: 13500,
+    previousExecutedQty: 280,
+    totalExecutedQty: 280
+  },
+  {
+    id: 'art-ec-04',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-01',
+    sectionId: 'sec-ecole-01',
+    code: '1.04',
+    designation: 'Béton armé en fondations (semelles isolées, filantes et longrines) dosé à 350 kg/m³',
+    unit: 'm³',
+    initialQuantity: 520,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 520,
+    unitPriceHT: 19500,
+    previousExecutedQty: 520,
+    totalExecutedQty: 520
+  },
+  {
+    id: 'art-ec-05',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-01',
+    sectionId: 'sec-ecole-02',
+    code: '2.01',
+    designation: 'Béton armé pour poteaux, poutres, chaînages et voiles d\'escaliers dosé à 350 kg/m³',
+    unit: 'm³',
+    initialQuantity: 780,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 780,
+    unitPriceHT: 24500,
+    previousExecutedQty: 450,
+    totalExecutedQty: 450
+  },
+  {
+    id: 'art-ec-06',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-01',
+    sectionId: 'sec-ecole-02',
+    code: '2.02',
+    designation: 'Plancher à corps creux 16+4 y compris poutrelles préfabriquées et dalle de compression',
+    unit: 'm²',
+    initialQuantity: 2200,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 2200,
+    unitPriceHT: 4200,
+    previousExecutedQty: 1100,
+    totalExecutedQty: 1100
+  },
+  {
+    id: 'art-ec-07',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-02',
+    sectionId: 'sec-ecole-03',
+    code: '3.01',
+    designation: 'Maçonnerie en briques creuses de 12 et 8 trous pour doubles cloisons avec lame d\'air',
+    unit: 'm²',
+    initialQuantity: 3400,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 3400,
+    unitPriceHT: 3100,
+    previousExecutedQty: 1200,
+    totalExecutedQty: 1200
+  },
+  {
+    id: 'art-ec-08',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-02',
+    sectionId: 'sec-ecole-03',
+    code: '3.02',
+    designation: 'Enduit au mortier de ciment bâtard intérieur et extérieur sous plafond',
+    unit: 'm²',
+    initialQuantity: 6800,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 6800,
+    unitPriceHT: 850,
+    previousExecutedQty: 1500,
+    totalExecutedQty: 1500
+  },
+  {
+    id: 'art-ec-09',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-03',
+    sectionId: 'sec-ecole-04',
+    code: '4.01',
+    designation: 'Caniveaux préfabriqués d\'évacuation des eaux pluviales de la cour d\'école avec grille fonte',
+    unit: 'ml',
+    initialQuantity: 450,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 450,
+    unitPriceHT: 4200,
+    previousExecutedQty: 200,
+    totalExecutedQty: 200
+  },
+  {
+    id: 'art-ec-10',
+    marketId: 'm-ecole-sba',
+    lotId: 'lot-ecole-03',
+    sectionId: 'sec-ecole-04',
+    code: '4.02',
+    designation: 'Muret de clôture d\'enceinte école avec grille métallique défensive et portail principal',
+    unit: 'ml',
+    initialQuantity: 380,
+    avenantQuantityDelta: 0,
+    currentContractQuantity: 380,
+    unitPriceHT: 16500,
+    previousExecutedQty: 150,
+    totalExecutedQty: 150
+  },
+  // ARTICLES DU PROJET R+5
   {
     id: 'art-1-1',
     marketId: 'm-r5',
@@ -208,6 +399,21 @@ const INITIAL_ARTICLES: DQEArticle[] = [
 // CHANTIER SYNCHRONISÉ AVEC LE LOT 01
 const INITIAL_CHANTIERS: Chantier[] = [
   {
+    id: 'ch-ecole-sba',
+    lotId: 'lot-ecole-01',
+    marketId: 'm-ecole-sba',
+    name: 'Chantier Groupe Scolaire Base 3 DEP (École Primaire)',
+    wilaya: '22',
+    address: 'Quartier Rocade Sud, Sidi Bel Abbès',
+    chefChantierName: 'Kamel Meziane',
+    chefChantierPhone: '0550 44 55 66',
+    physicalProgressPct: 45,
+    financialProgressPct: 38,
+    status: 'Actif',
+    startDate: '2026-02-01',
+    weatherNote: 'Ensoleillé 24°C - Coulage Poteaux R+1'
+  },
+  {
     id: 'ch-sba-01',
     lotId: 'lot-01',
     marketId: 'm-r5',
@@ -240,6 +446,92 @@ const INITIAL_CHANTIERS: Chantier[] = [
 
 // ATTACHEMENTS (AVEC ATTACHEMENT N°2 PRÊT POUR LE SCÉNARIO VIDÉO)
 const INITIAL_ATTACHEMENTS: Attachement[] = [
+  // ATTACHEMENT N° 1 ÉCOLE 125M DA (DEP SIDI BEL ABBÈS) - VALIDÉ
+  {
+    id: 'att-ecole-01',
+    marketId: 'm-ecole-sba',
+    chantierId: 'ch-ecole-sba',
+    number: 1,
+    periodStart: '2026-02-01',
+    periodEnd: '2026-02-28',
+    zone: 'Zone 1 : Terrassements, Plateforme & Fondations Bloc Pédagogique',
+    status: 'Validé',
+    createdBy: 'Kamel Meziane (Chef de Chantier)',
+    createdAt: '2026-02-28',
+    validatedAt: '2026-03-03',
+    items: [
+      {
+        id: 'item-ec-01',
+        articleId: 'art-ec-01',
+        mode: 'Direct',
+        metreLines: [],
+        currentQuantity: 1850,
+        observation: 'Fouilles conformes aux sondages de sol'
+      },
+      {
+        id: 'item-ec-02',
+        articleId: 'art-ec-02',
+        mode: 'MetreDetaille',
+        metreLines: [
+          { id: 'ml-ec-01', label: 'Béton propreté sous semelles S1 à S18', count: 18, length: 2.5, width: 2.5, height: 0.1, factor: 1, subtotal: 11.25 },
+          { id: 'ml-ec-02', label: 'Béton propreté sous longrines', count: 1, length: 580, width: 0.6, height: 0.1, factor: 1, subtotal: 34.8 }
+        ],
+        currentQuantity: 160,
+        observation: 'Béton dosé à 150 kg/m³ validé par BET'
+      },
+      {
+        id: 'item-ec-03',
+        articleId: 'art-ec-03',
+        mode: 'Direct',
+        metreLines: [],
+        currentQuantity: 280,
+        observation: 'Gros béton de calage'
+      },
+      {
+        id: 'item-ec-04',
+        articleId: 'art-ec-04',
+        mode: 'Direct',
+        metreLines: [],
+        currentQuantity: 520,
+        observation: 'Semelles isolées et longrines coulées'
+      }
+    ]
+  },
+  // ATTACHEMENT N° 2 ÉCOLE 125M DA - EN COURS
+  {
+    id: 'att-ecole-02',
+    marketId: 'm-ecole-sba',
+    chantierId: 'ch-ecole-sba',
+    number: 2,
+    periodStart: '2026-03-01',
+    periodEnd: '2026-03-31',
+    zone: 'Zone 2 : Poteaux & Dalles R+1 + Clôture',
+    status: 'Brouillon',
+    createdBy: 'Kamel Meziane (Chef de Chantier)',
+    createdAt: '2026-03-31',
+    items: [
+      {
+        id: 'item-ec-21',
+        articleId: 'art-ec-05',
+        mode: 'Direct',
+        metreLines: [],
+        currentQuantity: 450,
+        observation: 'Poteaux et poutres R+1 achevés',
+        hasExceedance: false,
+        exceedanceQty: 0
+      },
+      {
+        id: 'item-ec-22',
+        articleId: 'art-ec-06',
+        mode: 'Direct',
+        metreLines: [],
+        currentQuantity: 1100,
+        observation: 'Plancher haut RDC coulé avec treillis soudé',
+        hasExceedance: false,
+        exceedanceQty: 0
+      }
+    ]
+  },
   {
     id: 'att-01',
     marketId: 'm-r5',
@@ -356,8 +648,92 @@ const INITIAL_AVENANTS: Avenant[] = [
   }
 ];
 
-// SITUATION N° 1
+// SITUATIONS
 const INITIAL_SITUATIONS: Situation[] = [
+  // SITUATION N° 1 GROUPE SCOLAIRE 125M DA (DEP SIDI BEL ABBÈS) - VALIDÉE / PAYÉE
+  {
+    id: 'sit-ecole-01',
+    marketId: 'm-ecole-sba',
+    chantierId: 'ch-ecole-sba',
+    number: 1,
+    date: '2026-03-05',
+    period: 'Du 01/02/2026 au 28/02/2026',
+    attachedAttachementIds: ['att-ecole-01'],
+    status: 'Validée / Payée',
+    isDGD: false,
+    items: [
+      {
+        articleId: 'art-ec-01',
+        code: '1.01',
+        designation: 'Fouilles en pleine masse et en rigoles école',
+        unit: 'm³',
+        contractQty: 1850,
+        unitPriceHT: 750,
+        prevQty: 0,
+        monthQty: 1850,
+        totalQty: 1850,
+        prevAmountHT: 0,
+        monthAmountHT: 1387500,
+        totalAmountHT: 1387500,
+        progressPct: 100
+      },
+      {
+        articleId: 'art-ec-02',
+        code: '1.02',
+        designation: 'Béton de propreté dosé à 150 kg/m³',
+        unit: 'm³',
+        contractQty: 160,
+        unitPriceHT: 9500,
+        prevQty: 0,
+        monthQty: 160,
+        totalQty: 160,
+        prevAmountHT: 0,
+        monthAmountHT: 1520000,
+        totalAmountHT: 1520000,
+        progressPct: 100
+      },
+      {
+        articleId: 'art-ec-03',
+        code: '1.03',
+        designation: 'Gros béton de calage dosé à 250 kg/m³',
+        unit: 'm³',
+        contractQty: 280,
+        unitPriceHT: 13500,
+        prevQty: 0,
+        monthQty: 280,
+        totalQty: 280,
+        prevAmountHT: 0,
+        monthAmountHT: 3780000,
+        totalAmountHT: 3780000,
+        progressPct: 100
+      },
+      {
+        articleId: 'art-ec-04',
+        code: '1.04',
+        designation: 'Béton armé en fondations dosé à 350 kg/m³',
+        unit: 'm³',
+        contractQty: 520,
+        unitPriceHT: 19500,
+        prevQty: 0,
+        monthQty: 520,
+        totalQty: 520,
+        prevAmountHT: 0,
+        monthAmountHT: 10140000,
+        totalAmountHT: 10140000,
+        progressPct: 100
+      }
+    ],
+    grossAmountPreviousHT: 0,
+    grossAmountCurrentHT: 16827500,
+    grossAmountCumulativeHT: 16827500,
+    retenueGarantieHT: 841375, // 5%
+    remboursementAvanceHT: 2524125, // 15%
+    netHT: 13462000,
+    tvaRate: 9,
+    tvaAmount: 1211580,
+    netToPayTTC: 14673580,
+    netToPayWordsFR: numberToWordsDZ(14673580)
+  },
   {
     id: 'sit-01',
     marketId: 'm-r5',
@@ -429,6 +805,13 @@ const INITIAL_SITUATIONS: Situation[] = [
 ];
 
 const INITIAL_STOCKS: StockItem[] = [
+  // STOCKS DU CHANTIER GROUPE SCOLAIRE 125M DA (DEP SIDI BEL ABBÈS)
+  { id: 'stk-ec-01', chantierId: 'ch-ecole-sba', name: 'Ciment Gris CPJ 42.5 (Sacs 50kg)', category: 'Ciment', unit: 'Sac', quantityInStock: 1200, minThreshold: 300, unitPriceCost: 520, lastRestockedDate: '2026-03-24' },
+  { id: 'stk-ec-02', chantierId: 'ch-ecole-sba', name: 'Rond à béton FeE500 Ø 12 mm & 14 mm', category: 'Acier', unit: 'Tonne', quantityInStock: 32.5, minThreshold: 8, unitPriceCost: 112000, lastRestockedDate: '2026-03-22' },
+  { id: 'stk-ec-03', chantierId: 'ch-ecole-sba', name: 'Briques creuses 8 trous pour cloisons', category: 'Briques & Maçonnerie', unit: 'U', quantityInStock: 18500, minThreshold: 3000, unitPriceCost: 35, lastRestockedDate: '2026-03-26' },
+  { id: 'stk-ec-04', chantierId: 'ch-ecole-sba', name: 'Gravier concassé 15/25', category: 'Granulats', unit: 'm³', quantityInStock: 120, minThreshold: 30, unitPriceCost: 1950, lastRestockedDate: '2026-03-28' },
+  { id: 'stk-ec-05', chantierId: 'ch-ecole-sba', name: 'Sable d\'Oued lavé 0/5', category: 'Granulats', unit: 'm³', quantityInStock: 95, minThreshold: 25, unitPriceCost: 2200, lastRestockedDate: '2026-03-28' },
+  // STOCKS DU CHANTIER R+5
   { id: 'stk-01', chantierId: 'ch-sba-01', name: 'Ciment Gris CPJ 42.5 (Sacs 50kg)', category: 'Ciment', unit: 'Sac', quantityInStock: 840, minThreshold: 200, unitPriceCost: 520, lastRestockedDate: '2026-03-25' },
   { id: 'stk-02', chantierId: 'ch-sba-01', name: 'Rond à béton FeE500 Ø 12 mm', category: 'Acier', unit: 'Tonne', quantityInStock: 24.5, minThreshold: 5, unitPriceCost: 112000, lastRestockedDate: '2026-03-20' },
   { id: 'stk-03', chantierId: 'ch-sba-01', name: 'Caniveaux préfabriqués 100x20', category: 'Granulats', unit: 'ml', quantityInStock: 650, minThreshold: 50, unitPriceCost: 3200, lastRestockedDate: '2026-03-28' },
@@ -437,6 +820,18 @@ const INITIAL_STOCKS: StockItem[] = [
 ];
 
 const INITIAL_WORKERS: Worker[] = [
+  // ÉQUIPE COMPLÈTE GROUPE SCOLAIRE BASE 3 (DEP SIDI BEL ABBÈS - 125M DA)
+  { id: 'w-ecole-01', chantierId: 'ch-ecole-sba', fullName: 'Kamel Meziane', trade: 'Chef de Chantier', dailyRateDA: 4800, cnasNumber: '198022005412', phone: '0550 44 55 66', status: 'Actif', daysWorkedCurrentMonth: 26 },
+  { id: 'w-ecole-02', chantierId: 'ch-ecole-sba', fullName: 'Yacine Larbi', trade: 'Topographe', dailyRateDA: 4200, cnasNumber: '198622004781', phone: '0661 22 33 44', status: 'Actif', daysWorkedCurrentMonth: 25 },
+  { id: 'w-ecole-03', chantierId: 'ch-ecole-sba', fullName: 'Hamid Boumedienne', trade: 'Maçon', dailyRateDA: 2800, cnasNumber: '198422008912', phone: '0770 12 34 56', status: 'Actif', daysWorkedCurrentMonth: 24 },
+  { id: 'w-ecole-04', chantierId: 'ch-ecole-sba', fullName: 'Noureddine Khelifi', trade: 'Coffreur', dailyRateDA: 2900, cnasNumber: '198822003321', phone: '0552 66 77 88', status: 'Actif', daysWorkedCurrentMonth: 26 },
+  { id: 'w-ecole-05', chantierId: 'ch-ecole-sba', fullName: 'Rachid Touati', trade: 'Ferrailleur', dailyRateDA: 2950, cnasNumber: '199122001155', phone: '0664 88 99 00', status: 'Actif', daysWorkedCurrentMonth: 25 },
+  { id: 'w-ecole-06', chantierId: 'ch-ecole-sba', fullName: 'Mohamed Benyahia', trade: 'Conducteur d\'engin', dailyRateDA: 3500, cnasNumber: '198222009844', phone: '0772 33 44 55', status: 'Actif', daysWorkedCurrentMonth: 24 },
+  { id: 'w-ecole-07', chantierId: 'ch-ecole-sba', fullName: 'Khaled Senhadji', trade: 'Électricien', dailyRateDA: 3000, cnasNumber: '199322007788', phone: '0558 11 22 44', status: 'Actif', daysWorkedCurrentMonth: 22 },
+  { id: 'w-ecole-08', chantierId: 'ch-ecole-sba', fullName: 'Salim Belkacemi', trade: 'Plombier', dailyRateDA: 2900, cnasNumber: '199022006655', phone: '0667 99 88 11', status: 'Actif', daysWorkedCurrentMonth: 20 },
+  { id: 'w-ecole-09', chantierId: 'ch-ecole-sba', fullName: 'Sofiane Drihem', trade: 'Manœuvre qualifié', dailyRateDA: 2000, cnasNumber: '199622002233', phone: '0559 44 33 22', status: 'Actif', daysWorkedCurrentMonth: 26 },
+  { id: 'w-ecole-10', chantierId: 'ch-ecole-sba', fullName: 'Abdelkader Bouri', trade: 'Manœuvre ordinaire', dailyRateDA: 1800, cnasNumber: '199822004411', phone: '0774 55 66 77', status: 'Actif', daysWorkedCurrentMonth: 26 },
+  // ÉQUIPE DU PROJET R+5
   { id: 'w-01', chantierId: 'ch-sba-01', fullName: 'Mourad Belkacem', trade: 'Chef de Chantier', dailyRateDA: 4500, cnasNumber: '197822001452', phone: '0550 12 34 56', status: 'Actif', daysWorkedCurrentMonth: 26 },
   { id: 'w-02', chantierId: 'ch-sba-01', fullName: 'Ahmed Bouziane', trade: 'Coffreur', dailyRateDA: 2800, cnasNumber: '198522003671', phone: '0662 33 44 55', status: 'Actif', daysWorkedCurrentMonth: 24 },
   { id: 'w-03', chantierId: 'ch-sba-01', fullName: 'Rabah Cherifi', trade: 'Ferrailleur', dailyRateDA: 2900, cnasNumber: '198322005892', phone: '0771 88 99 00', status: 'Actif', daysWorkedCurrentMonth: 25 },
@@ -474,6 +869,22 @@ const INITIAL_EQUIPMENT: MaterialEquipment[] = [
 ];
 
 const INITIAL_CHEQUES: ChequePayment[] = [
+  // RÈGLEMENT SITUATION N° 1 ÉCOLE 125M DA PAR LA DIRECTION DES ÉQUIPEMENTS PUBLICS
+  {
+    id: 'chq-ec-01',
+    marketId: 'm-ecole-sba',
+    chantierId: 'ch-ecole-sba',
+    type: 'Reçu',
+    chequeNumber: 'MANDAT-2026/884',
+    bank: 'BNA',
+    amountDA: 14673580,
+    issuerOrBeneficiary: 'Trésor Public / DEP Sidi Bel Abbès (Règlement Sit N° 01 École)',
+    issueDate: '2026-03-12',
+    depositDate: '2026-03-14',
+    cashingDate: '2026-03-18',
+    status: 'Encaissé',
+    notes: 'Mandatement Trésorerie de Wilaya Sidi Bel Abbès'
+  },
   {
     id: 'chq-01',
     marketId: 'm-r5',
@@ -505,6 +916,10 @@ const INITIAL_CHEQUES: ChequePayment[] = [
 ];
 
 const INITIAL_EXPENSES: Expense[] = [
+  // DÉPENSES CHANTIER GROUPE SCOLAIRE BASE 3
+  { id: 'exp-ec-01', chantierId: 'ch-ecole-sba', marketId: 'm-ecole-sba', date: '2026-03-10', category: 'Matériaux', description: 'Fourniture de 25 tonnes rond à béton FeE500 Sider', amountDA: 2800000, paymentMode: 'Virement BTP' },
+  { id: 'exp-ec-02', chantierId: 'ch-ecole-sba', marketId: 'm-ecole-sba', date: '2026-03-15', category: 'Main-d\'œuvre', description: 'Paie quinzaine ouvriers et coffreurs école', amountDA: 1240000, paymentMode: 'Chèque' },
+  { id: 'exp-ec-03', chantierId: 'ch-ecole-sba', marketId: 'm-ecole-sba', date: '2026-03-22', category: 'Carburant & Engins', description: 'Gasoil centrale à béton et grue Potain', amountDA: 145000, paymentMode: 'Espèces (Caisse)' },
   { id: 'exp-01', chantierId: 'ch-sba-01', marketId: 'm-r5', date: '2026-03-24', category: 'Matériaux', description: 'Fourniture de caniveaux préfabriqués et tampons fonte', amountDA: 1250000, paymentMode: 'Virement BTP' },
   { id: 'exp-02', chantierId: 'ch-sba-01', marketId: 'm-r5', date: '2026-03-26', category: 'Carburant & Engins', description: 'Gasoil engins de pose et pelle hydraulique', amountDA: 75000, paymentMode: 'Espèces (Caisse)' },
   { id: 'exp-03', chantierId: 'ch-sba-01', marketId: 'm-r5', date: '2026-03-28', category: 'Caisse Chantier', description: 'Petit outillage et raccordements VRD', amountDA: 32000, paymentMode: 'Espèces (Caisse)' }
@@ -573,11 +988,11 @@ interface BTPContextType {
 
 const BTPContext = createContext<BTPContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'btp_manager_dz_video_v2';
+const LOCAL_STORAGE_KEY = 'archilab_manager_dz_v3';
 
 export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [lang, setLang] = useState<'fr' | 'ar'>('fr');
-  const [selectedMarketId, setSelectedMarketId] = useState<string>('m-r5');
+  const [selectedMarketId, setSelectedMarketId] = useState<string>('m-ecole-sba');
 
   const [markets, setMarkets] = useState<Market[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_markets`);
@@ -924,7 +1339,7 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStocks(INITIAL_STOCKS);
     setWorkers(INITIAL_WORKERS);
     setExpenses(INITIAL_EXPENSES);
-    setSelectedMarketId('m-r5');
+    setSelectedMarketId('m-ecole-sba');
   };
 
   return (

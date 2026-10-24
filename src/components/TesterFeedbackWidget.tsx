@@ -102,9 +102,9 @@ export const TesterFeedbackWidget: React.FC<TesterFeedbackWidgetProps> = ({ acti
 
   const generateReportText = (item?: FeedbackItem) => {
     if (item) {
-      return `[BTP Manager Pro DZ] Retour Testeur :\n- Date : ${item.date}\n- Nom : ${item.userName} (${item.userRole})\n- Type : ${item.type.toUpperCase()}\n- Module : ${item.module}\n- Remarque : ${item.message}`;
+      return `[ARCHILAB MANAGER] Retour Testeur :\n- Date : ${item.date}\n- Nom : ${item.userName} (${item.userRole})\n- Type : ${item.type.toUpperCase()}\n- Module : ${item.module}\n- Remarque : ${item.message}`;
     }
-    return `[BTP Manager Pro DZ] Rapport de test (${feedbacks.length} retours enregistrés) :\n\n` + 
+    return `[ARCHILAB MANAGER] Rapport de test (${feedbacks.length} retours enregistrés) :\n\n` + 
       feedbacks.map((f, i) => `${i + 1}. [${f.type.toUpperCase()} - ${f.module}] par ${f.userName} (${f.userRole}) : ${f.message}`).join('\n\n');
   };
 
@@ -126,7 +126,7 @@ export const TesterFeedbackWidget: React.FC<TesterFeedbackWidgetProps> = ({ acti
 
   const handleSendWhatsApp = () => {
     const text = encodeURIComponent(
-      `Bonjour, voici mon retour sur l'application BTP Manager Pro DZ :\n\n` +
+      `Bonjour, voici mon retour sur l'application ARCHILAB MANAGER :\n\n` +
       `👤 Nom : ${userName || 'Testeur'} (${userRole})\n` +
       `📌 Module : ${feedbackModule}\n` +
       `⚠️ Type : ${feedbackType === 'bug' ? 'Problème / Bug' : feedbackType === 'idea' ? 'Suggestion / Amélioration' : 'Question'}\n` +

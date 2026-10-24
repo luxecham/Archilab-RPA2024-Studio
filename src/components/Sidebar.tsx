@@ -144,15 +144,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
         {/* Brand header */}
         <div className="h-18 px-5 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/40">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-blue-700 to-amber-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-extrabold text-lg tracking-wider">
-              DZ
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-amber-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-extrabold text-base tracking-wider">
+              AM
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-white text-base tracking-tight">BTP MANAGER</span>
-                <span className="text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30">PRO</span>
+                <span className="font-extrabold text-white text-base tracking-tight">ARCHILAB</span>
+                <span className="text-[10px] font-bold uppercase bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30">MANAGER</span>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">Algérie • Marchés Publics</p>
+              <p className="text-[11px] text-slate-400 font-medium">BTP & Marchés Publics Algérie</p>
             </div>
           </div>
         </div>

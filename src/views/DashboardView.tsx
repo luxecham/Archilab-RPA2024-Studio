@@ -245,7 +245,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-black text-sm uppercase tracking-wide">
-                  Workflow Vidéo BTP Manager Pro (01:10 → 07:28)
+                  Workflow Vidéo ARCHILAB MANAGER (01:10 → 07:28)
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white">
                   Prêt à tester
