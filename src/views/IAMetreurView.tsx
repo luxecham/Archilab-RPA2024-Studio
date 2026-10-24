@@ -36,7 +36,9 @@ import {
   ListOrdered,
   AlertCircle,
   Download,
-  Zap
+  Zap,
+  Copy,
+  Terminal
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 import { formatDA, formatNumberDZ, numberToWordsDZ, ALGERIAN_WILAYAS } from '../utils/dzFormatters';
@@ -337,6 +339,11 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
   // ÉTAT INITIAL VIERGE : AUCUN LOT PRÉ-REMPLI PAR DÉFAUT
   const [currentQuotationDef, setCurrentQuotationDef] = useState<DevisQuotationDef | null>(null);
 
+  // Texte brut extrait du document (PDF/Image OCR)
+  const [rawExtractedText, setRawExtractedText] = useState<string>('');
+  const [showRawText, setShowRawText] = useState<boolean>(false);
+  const [copiedRawText, setCopiedRawText] = useState<boolean>(false);
+
   // Métadonnées extraites
   const [extractedTitle, setExtractedTitle] = useState<string>('');
   const [extractedNumber, setExtractedNumber] = useState<string>('');
@@ -613,57 +620,131 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
     try {
       let extractedText = '';
 
-      // 1. Si fichier PDF, extraction textuelle via PDF.js
+      // 1. Si fichier PDF, lecture et ordonnancement par coordonnées X/Y via PDF.js
       if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         try {
           setScanStep(2);
-          setScanProgress(30);
+          setScanProgress(25);
           const pdfjsLib = await import('pdfjs-dist');
           if (pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || '4.0.379'}/build/pdf.worker.min.mjs`;
           }
           const arrayBuffer = await file.arrayBuffer();
           const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          let pdfText = '';
-          const maxPages = Math.min(pdf.numPages, 15);
+          let pdfFullText = '';
+          const maxPages = Math.min(pdf.numPages, 20);
+
+          let tesseractModule: any = null;
+
           for (let p = 1; p <= maxPages; p++) {
             const page = await pdf.getPage(p);
             const content = await page.getTextContent();
-            const pageStr = content.items
-              .map((it: any) => ('str' in it ? it.str : ''))
-              .join(' ');
-            pdfText += pageStr + '\n';
-            setScanProgress(30 + Math.round((p / maxPages) * 30));
+            
+            // Regroupement par lignes selon coordonnée verticale transform[5] (tolérance de 3px)
+            // et tri horizontal de gauche à droite selon transform[4]
+            const items = (content.items || [])
+              .filter((it: any) => typeof it.str === 'string' && it.str.trim().length > 0 && Array.isArray(it.transform));
+            
+            interface TextLineGroup {
+              y: number;
+              items: { x: number; text: string }[];
+            }
+            const lineGroups: TextLineGroup[] = [];
+
+            items.forEach((it: any) => {
+              const x = it.transform[4];
+              const y = it.transform[5];
+              const str = it.str.trim();
+              if (!str) return;
+
+              // Recherche d'une ligne existante à +- 3px
+              let line = lineGroups.find(l => Math.abs(l.y - y) <= 3);
+              if (!line) {
+                line = { y, items: [] };
+                lineGroups.push(line);
+              }
+              line.items.push({ x, text: str });
+            });
+
+            // Tri vertical du haut vers le bas (dans PDF Y=0 est en bas, donc tri décroissant)
+            lineGroups.sort((a, b) => b.y - a.y);
+
+            // Pour chaque ligne, tri horizontal de gauche à droite (X croissant)
+            const pageLines: string[] = [];
+            lineGroups.forEach(lg => {
+              lg.items.sort((a, b) => a.x - b.x);
+              pageLines.push(lg.items.map(it => it.text).join(' '));
+            });
+
+            let pageText = pageLines.join('\n');
+
+            // Fallback OCR automatique si page scannée (moins de 20 caractères extraits)
+            if (pageText.replace(/\s/g, '').length < 20) {
+              try {
+                if (!tesseractModule) {
+                  setScanStep(3);
+                  tesseractModule = await import('tesseract.js');
+                }
+                const viewport = page.getViewport({ scale: 2.0 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  await (page.render as any)({ canvasContext: ctx, viewport, canvas }).promise;
+                  const ocrRes = await tesseractModule.recognize(canvas, 'fra+eng', {
+                    logger: (m: any) => {
+                      if (m.status === 'recognizing text') {
+                        const subProg = 25 + Math.round((p / maxPages) * 45) + Math.round((m.progress || 0) * 10);
+                        setScanProgress(Math.min(90, subProg));
+                      }
+                    }
+                  });
+                  if (ocrRes?.data?.text) {
+                    pageText = ocrRes.data.text;
+                  }
+                }
+              } catch (canvasErr) {
+                console.warn(`Erreur OCR canvas page ${p}:`, canvasErr);
+              }
+            }
+
+            pdfFullText += `\n--- PAGE ${p} ---\n` + pageText + '\n';
+            setScanProgress(Math.min(85, 25 + Math.round((p / maxPages) * 55)));
           }
-          extractedText = pdfText;
+
+          extractedText = pdfFullText;
         } catch (pdfErr) {
-          console.warn('Lecture PDF.js standard indisponible, bascule sur OCR:', pdfErr);
+          console.warn('Erreur lecture PDF.js standard, bascule sur OCR image:', pdfErr);
         }
       }
 
-      // 2. Si PDF scanné (texte extrait trop court) ou si image JPG/PNG, exécution OCR Tesseract.js
-      if (extractedText.trim().length < 40 || file.type.startsWith('image/')) {
+      // 2. Si fichier image direct (JPG, PNG) ou texte extrait toujours vide
+      if (file.type.startsWith('image/') || extractedText.replace(/\s/g, '').length < 30) {
         setScanStep(3);
-        setScanProgress(65);
+        setScanProgress(70);
         try {
           const Tesseract = await import('tesseract.js');
           const res = await Tesseract.recognize(file, 'fra+eng', {
             logger: m => {
               if (m.status === 'recognizing text') {
-                setScanProgress(65 + Math.round((m.progress || 0) * 25));
+                setScanProgress(70 + Math.round((m.progress || 0) * 22));
               }
             }
           });
-          if (res.data && res.data.text) {
+          if (res?.data?.text) {
             extractedText += '\n' + res.data.text;
           }
         } catch (ocrErr) {
-          console.warn('OCR Tesseract non disponible localement:', ocrErr);
+          console.warn('OCR Tesseract direct non disponible:', ocrErr);
         }
       }
 
       setScanStep(4);
       setScanProgress(95);
+
+      // Mémorisation du flux brut extrait pour consultation utilisateur
+      setRawExtractedText(extractedText);
 
       // 3. Analyse sémantique des lignes extraites
       const parsedQuotation = parseExtractedBTPText(extractedText, file.name);
@@ -1234,11 +1315,80 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={handleAddLot}
-              className="px-3 py-1.5 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 text-xs font-black flex items-center gap-1.5 border border-blue-500/20 transition-all"
+              className="px-3 py-1.5 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 text-xs font-black flex items-center gap-1.5 border border-blue-500/20 transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Ajouter un Nouveau Lot</span>
             </button>
+          </div>
+
+          {/* ======================================================== */}
+          {/* ACCORDÉON : VOIR LE TEXTE BRUT EXTRAIT DU PDF (OCR RÉEL)  */}
+          {/* ======================================================== */}
+          <div className="liquid-glass-card rounded-2xl border border-white/60 dark:border-white/10 overflow-hidden shadow-xs">
+            <button
+              type="button"
+              onClick={() => setShowRawText(!showRawText)}
+              className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-white/40 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Terminal className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                    Voir le texte brut extrait du PDF (Moteur OCR)
+                  </span>
+                  <span className="text-[10px] text-slate-400 ml-2 font-medium">
+                    {rawExtractedText ? `${rawExtractedText.split('\n').filter(Boolean).length} lignes analysées • ${rawExtractedText.length} caractères` : 'Document analysé'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                  OCR Réel Vérifié
+                </span>
+                {showRawText ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+              </div>
+            </button>
+
+            {showRawText && (
+              <div className="p-4 border-t border-white/40 dark:border-white/10 space-y-3 bg-slate-950/80 rounded-b-2xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono text-slate-400">
+                    Flux textuel ordonné par coordonnées X/Y et reconnaissance optique :
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (rawExtractedText) {
+                        navigator.clipboard.writeText(rawExtractedText);
+                        setCopiedRawText(true);
+                        setTimeout(() => setCopiedRawText(false), 2000);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                  >
+                    {copiedRawText ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Copié !</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copier le texte brut</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <pre className="max-h-72 overflow-y-auto p-3.5 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] leading-relaxed select-all whitespace-pre-wrap break-words border border-slate-800">
+                  {rawExtractedText || "Aucun texte brut disponible."}
+                </pre>
+              </div>
+            )}
           </div>
 
           {/* ======================================================== */}
