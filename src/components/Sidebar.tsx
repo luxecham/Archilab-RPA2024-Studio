@@ -105,10 +105,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
     },
     {
       id: 'logistics',
-      label: 'Stock & Logistique',
-      labelAr: 'المخزون واللوجستيك',
+      label: 'Stocks & Engins BTP',
+      labelAr: 'المخزون والعتاد',
       icon: Truck,
-      badge: null
+      badge: 'Matériaux DZ'
     },
     {
       id: 'finance',

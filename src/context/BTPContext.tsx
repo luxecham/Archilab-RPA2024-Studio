@@ -13,6 +13,7 @@ import {
   Situation,
   SituationItemLine,
   StockItem,
+  StockMovement,
   PurchaseOrder,
   MaterialEquipment,
   ChequePayment,
@@ -806,18 +807,649 @@ const INITIAL_SITUATIONS: Situation[] = [
 ];
 
 const INITIAL_STOCKS: StockItem[] = [
-  // STOCKS DU CHANTIER GROUPE SCOLAIRE 125M DA (DEP SIDI BEL ABBÈS)
-  { id: 'stk-ec-01', chantierId: 'ch-ecole-sba', name: 'Ciment Gris CPJ 42.5 (Sacs 50kg)', category: 'Ciment', unit: 'Sac', quantityInStock: 1200, minThreshold: 300, unitPriceCost: 520, lastRestockedDate: '2026-03-24' },
-  { id: 'stk-ec-02', chantierId: 'ch-ecole-sba', name: 'Rond à béton FeE500 Ø 12 mm & 14 mm', category: 'Acier', unit: 'Tonne', quantityInStock: 32.5, minThreshold: 8, unitPriceCost: 112000, lastRestockedDate: '2026-03-22' },
-  { id: 'stk-ec-03', chantierId: 'ch-ecole-sba', name: 'Briques creuses 8 trous pour cloisons', category: 'Briques & Maçonnerie', unit: 'U', quantityInStock: 18500, minThreshold: 3000, unitPriceCost: 35, lastRestockedDate: '2026-03-26' },
-  { id: 'stk-ec-04', chantierId: 'ch-ecole-sba', name: 'Gravier concassé 15/25', category: 'Granulats', unit: 'm³', quantityInStock: 120, minThreshold: 30, unitPriceCost: 1950, lastRestockedDate: '2026-03-28' },
-  { id: 'stk-ec-05', chantierId: 'ch-ecole-sba', name: 'Sable d\'Oued lavé 0/5', category: 'Granulats', unit: 'm³', quantityInStock: 95, minThreshold: 25, unitPriceCost: 2200, lastRestockedDate: '2026-03-28' },
-  // STOCKS DU CHANTIER R+5
-  { id: 'stk-01', chantierId: 'ch-sba-01', name: 'Ciment Gris CPJ 42.5 (Sacs 50kg)', category: 'Ciment', unit: 'Sac', quantityInStock: 840, minThreshold: 200, unitPriceCost: 520, lastRestockedDate: '2026-03-25' },
-  { id: 'stk-02', chantierId: 'ch-sba-01', name: 'Rond à béton FeE500 Ø 12 mm', category: 'Acier', unit: 'Tonne', quantityInStock: 24.5, minThreshold: 5, unitPriceCost: 112000, lastRestockedDate: '2026-03-20' },
-  { id: 'stk-03', chantierId: 'ch-sba-01', name: 'Caniveaux préfabriqués 100x20', category: 'Granulats', unit: 'ml', quantityInStock: 650, minThreshold: 50, unitPriceCost: 3200, lastRestockedDate: '2026-03-28' },
-  { id: 'stk-04', chantierId: 'ch-sba-01', name: 'Gravier concassé 15/25', category: 'Granulats', unit: 'm³', quantityInStock: 65, minThreshold: 20, unitPriceCost: 1950, lastRestockedDate: '2026-03-28' },
-  { id: 'stk-05', chantierId: 'ch-sba-01', name: 'Sable d\'Oued lavé 0/5', category: 'Granulats', unit: 'm³', quantityInStock: 80, minThreshold: 25, unitPriceCost: 2200, lastRestockedDate: '2026-03-28' }
+  // 1. BOIS (Unité = plaque)
+  {
+    id: 'stk-bois-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Planches de coffrage sapin rouge 4m (10x2.5cm)',
+    category: 'Bois',
+    unit: 'plaque',
+    quantityInStock: 450,
+    minThreshold: 100,
+    unitPriceCost: 850,
+    lastRestockedDate: '2026-03-24',
+    storageLocation: 'Parc à bois - Aire de stockage A',
+    supplier: 'SARL Bois & Dérivés de l\'Ouest'
+  },
+  {
+    id: 'stk-bois-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Panneaux contreplaqué filmé bakélisé 15mm pour dalles (250x125cm)',
+    category: 'Bois',
+    unit: 'plaque',
+    quantityInStock: 280,
+    minThreshold: 60,
+    unitPriceCost: 4200,
+    lastRestockedDate: '2026-03-22',
+    storageLocation: 'Dépôt couvert coffrage',
+    supplier: 'Comptoir National du Bois DZ'
+  },
+  {
+    id: 'stk-bois-03',
+    chantierId: 'ch-sba-01',
+    name: 'Madriers et chevrons sapin 4m (7x15cm / 8x8cm)',
+    category: 'Bois',
+    unit: 'plaque',
+    quantityInStock: 220,
+    minThreshold: 50,
+    unitPriceCost: 1650,
+    lastRestockedDate: '2026-03-20',
+    storageLocation: 'Aire de stockage B',
+    supplier: 'SARL Bois & Dérivés de l\'Ouest'
+  },
+
+  // 2. CIMENT (Unité = sac)
+  {
+    id: 'stk-cim-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Ciment Gris CPJ-CEM II/A 42.5 (Sacs 50kg)',
+    category: 'Ciment',
+    unit: 'sac',
+    quantityInStock: 1450,
+    minThreshold: 300,
+    unitPriceCost: 530,
+    lastRestockedDate: '2026-03-25',
+    storageLocation: 'Silo & Hangar Ciment n°1',
+    supplier: 'Groupe Industriel des Ciments d\'Algérie (GICA)'
+  },
+  {
+    id: 'stk-cim-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Ciment Résistant aux Sulfates CRS 42.5 (Sacs 50kg)',
+    category: 'Ciment',
+    unit: 'sac',
+    quantityInStock: 350,
+    minThreshold: 80,
+    unitPriceCost: 620,
+    lastRestockedDate: '2026-03-21',
+    storageLocation: 'Hangar Ciment n°2',
+    supplier: 'Lafarge Holcim Algérie (Oggaz)'
+  },
+
+  // 3. GRANULAT (Unité = m3)
+  {
+    id: 'stk-gra-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Gravier concassé 15/25 pour béton armé (B25)',
+    category: 'Granulat',
+    unit: 'm3',
+    quantityInStock: 160,
+    minThreshold: 35,
+    unitPriceCost: 1950,
+    lastRestockedDate: '2026-03-28',
+    storageLocation: 'Trémie Agrégats n°1',
+    supplier: 'Carrière de Tessala - SBA'
+  },
+  {
+    id: 'stk-gra-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Gravier concassé 8/15 pour éléments fins et chaînages',
+    category: 'Granulat',
+    unit: 'm3',
+    quantityInStock: 95,
+    minThreshold: 20,
+    unitPriceCost: 2100,
+    lastRestockedDate: '2026-03-28',
+    storageLocation: 'Trémie Agrégats n°2',
+    supplier: 'Carrière de Tessala - SBA'
+  },
+  {
+    id: 'stk-gra-03',
+    chantierId: 'ch-sba-01',
+    name: 'Tout-venant 0/20 pour remblais compactés sous dallage',
+    category: 'Granulat',
+    unit: 'm3',
+    quantityInStock: 210,
+    minThreshold: 50,
+    unitPriceCost: 1400,
+    lastRestockedDate: '2026-03-26',
+    storageLocation: 'Plateforme Remblai',
+    supplier: 'Entreprise Publique des Agrégats Ouest'
+  },
+
+  // 4. SABLE (Unité = m3)
+  {
+    id: 'stk-sab-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Sable d\'Oued lavé 0/5 pour béton armé',
+    category: 'Sable',
+    unit: 'm3',
+    quantityInStock: 125,
+    minThreshold: 30,
+    unitPriceCost: 2300,
+    lastRestockedDate: '2026-03-28',
+    storageLocation: 'Trémie Sable Central',
+    supplier: 'Sablière Oued El Abtal'
+  },
+  {
+    id: 'stk-sab-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Sable de carrière tamisé 0/2 pour mortiers et enduits',
+    category: 'Sable',
+    unit: 'm3',
+    quantityInStock: 80,
+    minThreshold: 25,
+    unitPriceCost: 1850,
+    lastRestockedDate: '2026-03-27',
+    storageLocation: 'Zone Mortier & Enduits',
+    supplier: 'Carrière de Sidi Ali Benyoub'
+  },
+
+  // 5. PLOMBERIE (Unité = ml ou Unité)
+  {
+    id: 'stk-plo-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Tube PVC Évacuation Assainissement Ø110 PN6',
+    category: 'Plomberie',
+    unit: 'ml',
+    quantityInStock: 360,
+    minThreshold: 50,
+    unitPriceCost: 650,
+    lastRestockedDate: '2026-03-26',
+    storageLocation: 'Râtelier Tubes PVC Magasin',
+    supplier: 'Chiali Tubes Sidi Bel Abbès'
+  },
+  {
+    id: 'stk-plo-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Tube Multicouche gainé Ø16 sanitaire eau potable',
+    category: 'Plomberie',
+    unit: 'ml',
+    quantityInStock: 480,
+    minThreshold: 100,
+    unitPriceCost: 280,
+    lastRestockedDate: '2026-03-24',
+    storageLocation: 'Magasin Plomberie Rayon A',
+    supplier: 'SARL Sanitaire Ouest'
+  },
+  {
+    id: 'stk-plo-03',
+    chantierId: 'ch-ecole-sba',
+    name: 'Vannes d\'arrêt boisseau sphérique 3/4" laiton à purge',
+    category: 'Plomberie',
+    unit: 'Unité',
+    quantityInStock: 55,
+    minThreshold: 15,
+    unitPriceCost: 1200,
+    lastRestockedDate: '2026-03-25',
+    storageLocation: 'Magasin Plomberie Tiroir V2',
+    supplier: 'Robinetterie Industrielle DZ'
+  },
+  {
+    id: 'stk-plo-04',
+    chantierId: 'ch-ecole-sba',
+    name: 'Siphons de sol inox anti-odeur 15x15 cm sortie Ø50',
+    category: 'Plomberie',
+    unit: 'Unité',
+    quantityInStock: 42,
+    minThreshold: 10,
+    unitPriceCost: 1850,
+    lastRestockedDate: '2026-03-23',
+    storageLocation: 'Magasin Plomberie Etagère S',
+    supplier: 'SARL Sanitaire Ouest'
+  },
+
+  // 6. ÉLECTRICITÉ (Unité = m.lineaire ou Unité)
+  {
+    id: 'stk-ele-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Câble cuivre armé U1000 R2V 3x2.5 mm² pour prises',
+    category: 'Électricité',
+    unit: 'm.lineaire',
+    quantityInStock: 850,
+    minThreshold: 150,
+    unitPriceCost: 220,
+    lastRestockedDate: '2026-03-26',
+    storageLocation: 'Touret Câbles Magasin Élec',
+    supplier: 'ENICAB Biskra / Alger'
+  },
+  {
+    id: 'stk-ele-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Gaine annelée ICTA Ø20 avec tire-fil intégré',
+    category: 'Électricité',
+    unit: 'm.lineaire',
+    quantityInStock: 1200,
+    minThreshold: 200,
+    unitPriceCost: 65,
+    lastRestockedDate: '2026-03-25',
+    storageLocation: 'Magasin Électricité Rayon G',
+    supplier: 'SARL Câblerie Moderne'
+  },
+  {
+    id: 'stk-ele-03',
+    chantierId: 'ch-ecole-sba',
+    name: 'Disjoncteurs divisionnaires Phase+Neutre 16A / 20A courbe C',
+    category: 'Électricité',
+    unit: 'Unité',
+    quantityInStock: 140,
+    minThreshold: 30,
+    unitPriceCost: 750,
+    lastRestockedDate: '2026-03-24',
+    storageLocation: 'Armoire Appareillage Élec',
+    supplier: 'Schneider Electric DZ Distributeur'
+  },
+  {
+    id: 'stk-ele-04',
+    chantierId: 'ch-ecole-sba',
+    name: 'Tableaux divisionnaires étanches 36 modules IP65 avec plastron',
+    category: 'Électricité',
+    unit: 'Unité',
+    quantityInStock: 14,
+    minThreshold: 4,
+    unitPriceCost: 8500,
+    lastRestockedDate: '2026-03-22',
+    storageLocation: 'Zone Équipements Électriques',
+    supplier: 'Schneider Electric DZ Distributeur'
+  },
+
+  // 7. BRIQUE ET BLOC (Unité = unité ou m2)
+  {
+    id: 'stk-bri-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Briques creuses en terre cuite 8 trous (10x20x30 cm)',
+    category: 'Brique et bloc',
+    unit: 'unité',
+    quantityInStock: 18500,
+    minThreshold: 3000,
+    unitPriceCost: 36,
+    lastRestockedDate: '2026-03-26',
+    storageLocation: 'Parc à briques - Aire Sud',
+    supplier: 'Briqueterie Sidi Brahim - SBA'
+  },
+  {
+    id: 'stk-bri-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Briques creuses en terre cuite 12 trous (15x20x30 cm)',
+    category: 'Brique et bloc',
+    unit: 'unité',
+    quantityInStock: 9800,
+    minThreshold: 2000,
+    unitPriceCost: 48,
+    lastRestockedDate: '2026-03-26',
+    storageLocation: 'Parc à briques - Aire Sud',
+    supplier: 'Briqueterie Sidi Brahim - SBA'
+  },
+  {
+    id: 'stk-bri-03',
+    chantierId: 'ch-ecole-sba',
+    name: 'Parpaings creux en béton 15x20x40 cm pour soubassements',
+    category: 'Brique et bloc',
+    unit: 'm2',
+    quantityInStock: 420,
+    minThreshold: 80,
+    unitPriceCost: 680,
+    lastRestockedDate: '2026-03-25',
+    storageLocation: 'Parc Agglos Nord',
+    supplier: 'Unité de Préfabrication Béton SBA'
+  },
+  {
+    id: 'stk-bri-04',
+    chantierId: 'ch-ecole-sba',
+    name: 'Corps creux / Hourdis béton H=16cm pour plancher terrasse',
+    category: 'Brique et bloc',
+    unit: 'unité',
+    quantityInStock: 3400,
+    minThreshold: 600,
+    unitPriceCost: 75,
+    lastRestockedDate: '2026-03-24',
+    storageLocation: 'Parc Hourdis Aire Ouest',
+    supplier: 'Unité de Préfabrication Béton SBA'
+  },
+
+  // 8. REVÊTEMENT SOL (Unité = m3 ou carton ou m2)
+  {
+    id: 'stk-rev-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Carrelage Grès cérame poli 60x60 premier choix',
+    category: 'Revêtement sol',
+    unit: 'carton',
+    quantityInStock: 380,
+    minThreshold: 60,
+    unitPriceCost: 2400,
+    lastRestockedDate: '2026-03-27',
+    storageLocation: 'Dépôt Finition Carrelage',
+    supplier: 'Céramiques Sanitaires d\'Algérie (Ceram Décor)'
+  },
+  {
+    id: 'stk-rev-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Faïence murale céramique 25x40 cm pour sanitaires & cuisines',
+    category: 'Revêtement sol',
+    unit: 'carton',
+    quantityInStock: 220,
+    minThreshold: 40,
+    unitPriceCost: 1950,
+    lastRestockedDate: '2026-03-26',
+    storageLocation: 'Dépôt Finition Carrelage',
+    supplier: 'Céramiques Sanitaires d\'Algérie (Ceram Décor)'
+  },
+  {
+    id: 'stk-rev-03',
+    chantierId: 'ch-ecole-sba',
+    name: 'Mortier de chape fluide autonivelante épaisseur 5cm',
+    category: 'Revêtement sol',
+    unit: 'm3',
+    quantityInStock: 50,
+    minThreshold: 15,
+    unitPriceCost: 7500,
+    lastRestockedDate: '2026-03-28',
+    storageLocation: 'Centrale à Mortier Chantier',
+    supplier: 'Centrale BPE Sidi Bel Abbès'
+  },
+  {
+    id: 'stk-rev-04',
+    chantierId: 'ch-ecole-sba',
+    name: 'Plinthes en grès cérame assorties 8x60 cm',
+    category: 'Revêtement sol',
+    unit: 'm2',
+    quantityInStock: 140,
+    minThreshold: 30,
+    unitPriceCost: 950,
+    lastRestockedDate: '2026-03-27',
+    storageLocation: 'Dépôt Finition Rayon P',
+    supplier: 'Céramiques Sanitaires d\'Algérie'
+  },
+
+  // 9. ACIER / FERRAILLAGE FeE500 (Ø6, Ø8, Ø10, Ø12, Ø16, Ø20 - Unité = barre ou tonne)
+  {
+    id: 'stk-aci-06',
+    chantierId: 'ch-ecole-sba',
+    name: 'Acier Rond à Béton HA FeE500 Ø 6 mm (Cadres, étriers & épingles)',
+    category: 'Acier',
+    steelDiameter: 6,
+    unit: 'barre',
+    quantityInStock: 1200,
+    minThreshold: 300,
+    unitPriceCost: 320,
+    lastRestockedDate: '2026-03-27',
+    storageLocation: 'Parc Ferraillage - Râtelier Ø6',
+    supplier: 'Tosyali Algérie Fer & Acier (Béthéoua)'
+  },
+  {
+    id: 'stk-aci-08',
+    chantierId: 'ch-ecole-sba',
+    name: 'Acier Rond à Béton HA FeE500 Ø 8 mm (Étriers poteaux & poutres)',
+    category: 'Acier',
+    steelDiameter: 8,
+    unit: 'barre',
+    quantityInStock: 950,
+    minThreshold: 200,
+    unitPriceCost: 580,
+    lastRestockedDate: '2026-03-27',
+    storageLocation: 'Parc Ferraillage - Râtelier Ø8',
+    supplier: 'Tosyali Algérie Fer & Acier (Béthéoua)'
+  },
+  {
+    id: 'stk-aci-10',
+    chantierId: 'ch-ecole-sba',
+    name: 'Acier Rond à Béton HA FeE500 Ø 10 mm (Armatures dalles & chaînages)',
+    category: 'Acier',
+    steelDiameter: 10,
+    unit: 'tonne',
+    quantityInStock: 8.5,
+    minThreshold: 2.0,
+    unitPriceCost: 114000,
+    lastRestockedDate: '2026-03-25',
+    storageLocation: 'Parc Ferraillage - Faisceaux Ø10',
+    supplier: 'Complexe Sidérurgique Sider El Hadjar'
+  },
+  {
+    id: 'stk-aci-12',
+    chantierId: 'ch-ecole-sba',
+    name: 'Acier Rond à Béton HA FeE500 Ø 12 mm (Ferraillage poutres & semelles)',
+    category: 'Acier',
+    steelDiameter: 12,
+    unit: 'barre',
+    quantityInStock: 720,
+    minThreshold: 150,
+    unitPriceCost: 1280,
+    lastRestockedDate: '2026-03-26',
+    storageLocation: 'Parc Ferraillage - Râtelier Ø12',
+    supplier: 'Tosyali Algérie Fer & Acier (Béthéoua)'
+  },
+  {
+    id: 'stk-aci-16',
+    chantierId: 'ch-ecole-sba',
+    name: 'Acier Rond à Béton HA FeE500 Ø 16 mm (Ferraillage poteaux & longrines)',
+    category: 'Acier',
+    steelDiameter: 16,
+    unit: 'tonne',
+    quantityInStock: 14.5,
+    minThreshold: 3.0,
+    unitPriceCost: 112000,
+    lastRestockedDate: '2026-03-25',
+    storageLocation: 'Parc Ferraillage - Faisceaux Ø16',
+    supplier: 'Tosyali Algérie Fer & Acier (Béthéoua)'
+  },
+  {
+    id: 'stk-aci-20',
+    chantierId: 'ch-ecole-sba',
+    name: 'Acier Rond à Béton HA FeE500 Ø 20 mm (Gros œuvre & amorces poteaux RDC)',
+    category: 'Acier',
+    steelDiameter: 20,
+    unit: 'tonne',
+    quantityInStock: 9.8,
+    minThreshold: 2.5,
+    unitPriceCost: 112000,
+    lastRestockedDate: '2026-03-24',
+    storageLocation: 'Parc Ferraillage - Faisceaux Ø20',
+    supplier: 'Complexe Sidérurgique Sider El Hadjar'
+  }
+];
+
+const INITIAL_STOCK_MOVEMENTS: StockMovement[] = [
+  {
+    id: 'mov-01',
+    stockItemId: 'stk-cim-01',
+    stockItemName: 'Ciment Gris CPJ-CEM II/A 42.5 (Sacs 50kg)',
+    chantierId: 'ch-ecole-sba',
+    type: 'Entrée (Réception BL)',
+    quantity: 500,
+    unit: 'sac',
+    date: '2026-03-25',
+    referenceDoc: 'BL N° GICA-2026/894',
+    destinationOrSource: 'Fournisseur GICA Cimenterie Zahana',
+    notes: 'Livraison semi-remorque 500 sacs conforme avec bon de pesée'
+  },
+  {
+    id: 'mov-02',
+    stockItemId: 'stk-cim-01',
+    stockItemName: 'Ciment Gris CPJ-CEM II/A 42.5 (Sacs 50kg)',
+    chantierId: 'ch-ecole-sba',
+    type: 'Sortie (Consommation)',
+    quantity: 180,
+    unit: 'sac',
+    date: '2026-03-27',
+    referenceDoc: 'BS-2026/041',
+    destinationOrSource: 'Coulage Dalle RDC Bloc Administration',
+    notes: 'Consommation gâchée centrale à béton pour B25'
+  },
+  {
+    id: 'mov-03',
+    stockItemId: 'stk-aci-12',
+    stockItemName: 'Acier Rond à Béton HA FeE500 Ø 12 mm',
+    chantierId: 'ch-ecole-sba',
+    type: 'Sortie (Consommation)',
+    quantity: 150,
+    unit: 'barre',
+    date: '2026-03-26',
+    referenceDoc: 'BS-2026/039',
+    destinationOrSource: 'Ferraillage Semelles Isolées S1 à S14',
+    notes: 'Façonnage atelier ferraillage chantier'
+  },
+  {
+    id: 'mov-04',
+    stockItemId: 'stk-aci-16',
+    stockItemName: 'Acier Rond à Béton HA FeE500 Ø 16 mm',
+    chantierId: 'ch-ecole-sba',
+    type: 'Entrée (Réception BL)',
+    quantity: 14.5,
+    unit: 'tonne',
+    date: '2026-03-25',
+    referenceDoc: 'BL N° TOS-7782',
+    destinationOrSource: 'Tosyali Algérie Fer & Acier Béthéoua',
+    notes: 'Certificat de conformité usine joint (FeE500)'
+  },
+  {
+    id: 'mov-05',
+    stockItemId: 'stk-sab-01',
+    stockItemName: 'Sable d\'Oued lavé 0/5 pour béton armé',
+    chantierId: 'ch-ecole-sba',
+    type: 'Sortie (Consommation)',
+    quantity: 24,
+    unit: 'm3',
+    date: '2026-03-28',
+    referenceDoc: 'BS-2026/044',
+    destinationOrSource: 'Coulage Poteaux & Amorces RDC',
+    notes: '2 rotations camion malaxeur 8m3'
+  },
+  {
+    id: 'mov-06',
+    stockItemId: 'stk-bois-02',
+    stockItemName: 'Panneaux contreplaqué filmé bakélisé 15mm pour dalles (250x125cm)',
+    chantierId: 'ch-ecole-sba',
+    type: 'Entrée (Réception BL)',
+    quantity: 120,
+    unit: 'plaque',
+    date: '2026-03-22',
+    referenceDoc: 'BL N° CNB-0912',
+    destinationOrSource: 'Comptoir National du Bois DZ',
+    notes: 'Pour coffrage soigné plancher dalle pleine'
+  }
+];
+
+const INITIAL_EQUIPMENT: MaterialEquipment[] = [
+  {
+    id: 'eq-01',
+    chantierId: 'ch-ecole-sba',
+    name: 'Rétrocaveuse 4x4 JCB 3CX Eco',
+    brandModel: 'JCB 3CX Eco Turbo',
+    type: 'Rétrocaveuse',
+    matricule: '01452-116-22',
+    status: 'Opérationnel',
+    driverName: 'Youcef Benali',
+    driverPhone: '0550 88 12 34',
+    horametreHours: 2450,
+    fuelLitersPerDay: 35,
+    nextMaintenanceHours: 2500,
+    dailyRentalCostDA: 18000
+  },
+  {
+    id: 'eq-02',
+    chantierId: 'ch-ecole-sba',
+    name: 'Pelleteuse sur chenilles CAT 320D',
+    brandModel: 'Caterpillar 320D L',
+    type: 'Pelleteuse',
+    matricule: '09841-118-22',
+    status: 'En mission / Sur chantier',
+    driverName: 'Abdelkader Zenati',
+    driverPhone: '0661 45 67 89',
+    horametreHours: 3820,
+    fuelLitersPerDay: 65,
+    nextMaintenanceHours: 4000,
+    dailyRentalCostDA: 32000
+  },
+  {
+    id: 'eq-03',
+    chantierId: 'ch-ecole-sba',
+    name: 'Grue à tour Potain 45m portée',
+    brandModel: 'Potain MC85 B',
+    type: 'Grue à tour',
+    matricule: 'GT-08-DZ',
+    status: 'Opérationnel',
+    driverName: 'Khaled Bouchama',
+    driverPhone: '0770 33 22 11',
+    horametreHours: 1120,
+    fuelLitersPerDay: 0,
+    nextMaintenanceHours: 1500,
+    dailyRentalCostDA: 25000
+  },
+  {
+    id: 'eq-04',
+    chantierId: 'ch-ecole-sba',
+    name: 'Camion Malaxeur (Toupie) Renault Kerax 8m³',
+    brandModel: 'Renault Kerax 380 dCi',
+    type: 'Camion malaxeur (Toupie)',
+    matricule: '04523-112-22',
+    status: 'Opérationnel',
+    driverName: 'Hocine Mansouri',
+    driverPhone: '0552 14 25 36',
+    horametreHours: 1890,
+    fuelLitersPerDay: 50,
+    nextMaintenanceHours: 2000,
+    dailyRentalCostDA: 22000
+  },
+  {
+    id: 'eq-05',
+    chantierId: 'ch-ecole-sba',
+    name: 'Camion benne 20T Sonacome 26.260',
+    brandModel: 'Sonacome K120 6x4',
+    type: 'Camion benne',
+    matricule: '01245-116-22',
+    status: 'Opérationnel',
+    driverName: 'Rachid Meziane',
+    driverPhone: '0663 98 74 12',
+    horametreHours: 4200,
+    fuelLitersPerDay: 40,
+    nextMaintenanceHours: 4500,
+    dailyRentalCostDA: 16000
+  },
+  {
+    id: 'eq-06',
+    chantierId: 'ch-ecole-sba',
+    name: 'Centrale & Bétonnière mobile tractée 750L Diesel',
+    brandModel: 'Imer Syntesi 750 Diesel',
+    type: 'Bétonnière mobile',
+    matricule: 'CB-22-SBA',
+    status: 'Opérationnel',
+    driverName: 'Miloud K.',
+    driverPhone: '0771 56 47 38',
+    horametreHours: 850,
+    fuelLitersPerDay: 12,
+    nextMaintenanceHours: 1000,
+    dailyRentalCostDA: 8000
+  },
+  {
+    id: 'eq-07',
+    chantierId: 'ch-ecole-sba',
+    name: 'Compacteur vibrant tandem Hamm HD12',
+    brandModel: 'Hamm HD 12 VV',
+    type: 'Compacteur',
+    matricule: 'CP-07-SBA',
+    status: 'En maintenance',
+    driverName: 'Samir T.',
+    driverPhone: '0558 74 12 36',
+    horametreHours: 940,
+    fuelLitersPerDay: 25,
+    nextMaintenanceHours: 950,
+    dailyRentalCostDA: 14000
+  },
+  {
+    id: 'eq-08',
+    chantierId: 'ch-ecole-sba',
+    name: 'Groupe électrogène de chantier 60 kVA Insonorisé',
+    brandModel: 'Atlas Copco QAS 60',
+    type: 'Groupe électrogène',
+    matricule: 'GE-SBA-60',
+    status: 'Opérationnel',
+    driverName: 'Farid Dahmani (Électricien)',
+    driverPhone: '0559 33 22 11',
+    horametreHours: 1650,
+    fuelLitersPerDay: 28,
+    nextMaintenanceHours: 1800,
+    dailyRentalCostDA: 11000
+  }
 ];
 
 const INITIAL_WORKERS: Worker[] = [
@@ -861,12 +1493,6 @@ const INITIAL_PURCHASE_ORDERS: PurchaseOrder[] = [
     status: 'Commandé',
     items: [{ description: 'Acier tor FeE500 assorti (Ø10, 12, 14)', quantity: 40, unit: 'Tonne', unitPrice: 112000, total: 4480000 }]
   }
-];
-
-const INITIAL_EQUIPMENT: MaterialEquipment[] = [
-  { id: 'eq-01', chantierId: 'ch-sba-01', name: 'Grue à tour Potain 45m', type: 'Grue', matricule: 'GT-08-DZ', status: 'Opérationnel', driverName: 'Abdelkader Zenati' },
-  { id: 'eq-02', chantierId: 'ch-sba-01', name: 'Centrale à béton mobile 750L', type: 'Bétonnière', matricule: 'CB-22-SBA', status: 'Opérationnel', driverName: 'Khaled B.' },
-  { id: 'eq-03', chantierId: 'ch-sba-01', name: 'Camion benne Sonacome 15T', type: 'Camion benne', matricule: '01245-116-22', status: 'Opérationnel', driverName: 'Hocine M.' }
 ];
 
 const INITIAL_CHEQUES: ChequePayment[] = [
@@ -973,10 +1599,18 @@ interface BTPContextType {
   generateSituationFromAttachements: (marketId: string, attachementIds: string[]) => string;
   validateSituation: (situationId: string) => void;
 
-  // Actions Chantier / Ouvriers / Dépenses / Chèques
+  // Actions Chantier / Ouvriers / Dépenses / Chèques / Stocks & Engins
   addChantier: (chantier: Chantier) => void;
+  stockMovements: StockMovement[];
+  recordStockMovement: (movement: StockMovement) => void;
   addStockItem: (item: StockItem) => void;
   updateStockQuantity: (id: string, delta: number) => void;
+  updateStockItem: (item: StockItem) => void;
+  deleteStockItem: (id: string) => void;
+  addEquipment: (item: MaterialEquipment) => void;
+  updateEquipment: (item: MaterialEquipment) => void;
+  deleteEquipment: (id: string) => void;
+  resetStocksToDZDefaults: () => void;
   addCheque: (cheque: ChequePayment) => void;
   updateChequeStatus: (id: string, status: ChequePayment['status']) => void;
   addExpense: (expense: Expense) => void;
@@ -1040,11 +1674,41 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [stocks, setStocks] = useState<StockItem[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_stocks`);
-    return saved ? JSON.parse(saved) : INITIAL_STOCKS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.some(s => s.category === 'Bois')) {
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return INITIAL_STOCKS;
   });
 
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(INITIAL_PURCHASE_ORDERS);
-  const [equipment, setEquipment] = useState<MaterialEquipment[]>(INITIAL_EQUIPMENT);
+  
+  const [equipment, setEquipment] = useState<MaterialEquipment[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_equipment`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_EQUIPMENT;
+  });
+
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_stock_movements`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_STOCK_MOVEMENTS;
+  });
+
   const [cheques, setCheques] = useState<ChequePayment[]>(INITIAL_CHEQUES);
   const [workers, setWorkers] = useState<Worker[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_workers`);
@@ -1062,8 +1726,11 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_attachements`, JSON.stringify(attachements));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_avenants`, JSON.stringify(avenants));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_situations`, JSON.stringify(situations));
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_stocks`, JSON.stringify(stocks));
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_equipment`, JSON.stringify(equipment));
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_stock_movements`, JSON.stringify(stockMovements));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_workers`, JSON.stringify(workers));
-  }, [markets, lots, sections, articles, chantiers, attachements, avenants, situations, workers]);
+  }, [markets, lots, sections, articles, chantiers, attachements, avenants, situations, stocks, equipment, stockMovements, workers]);
 
   const addMarket = (market: Market) => setMarkets(prev => [market, ...prev]);
   const updateMarket = (updated: Market) => setMarkets(prev => prev.map(m => m.id === updated.id ? updated : m));
@@ -1338,10 +2005,41 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateChequeStatus = (id: string, status: ChequePayment['status']) => {
     setCheques(prev => prev.map(c => c.id === id ? { ...c, status } : c));
   };
-  const addStockItem = (item: StockItem) => setStocks(prev => [...prev, item]);
+  
+  // Actions Stocks & Mouvements
+  const addStockItem = (item: StockItem) => setStocks(prev => [item, ...prev]);
   const updateStockQuantity = (id: string, delta: number) => {
     setStocks(prev => prev.map(s => s.id === id ? { ...s, quantityInStock: Math.max(0, s.quantityInStock + delta) } : s));
   };
+  const updateStockItem = (item: StockItem) => {
+    setStocks(prev => prev.map(s => s.id === item.id ? item : s));
+  };
+  const deleteStockItem = (id: string) => {
+    setStocks(prev => prev.filter(s => s.id !== id));
+  };
+  const recordStockMovement = (movement: StockMovement) => {
+    setStockMovements(prev => [movement, ...prev]);
+    if (movement.type.startsWith('Entrée')) {
+      updateStockQuantity(movement.stockItemId, movement.quantity);
+    } else if (movement.type.startsWith('Sortie')) {
+      updateStockQuantity(movement.stockItemId, -movement.quantity);
+    }
+  };
+
+  // Actions Engins BTP
+  const addEquipment = (item: MaterialEquipment) => setEquipment(prev => [item, ...prev]);
+  const updateEquipment = (item: MaterialEquipment) => setEquipment(prev => prev.map(e => e.id === item.id ? item : e));
+  const deleteEquipment = (id: string) => setEquipment(prev => prev.filter(e => e.id !== id));
+
+  const resetStocksToDZDefaults = () => {
+    setStocks(INITIAL_STOCKS);
+    setEquipment(INITIAL_EQUIPMENT);
+    setStockMovements(INITIAL_STOCK_MOVEMENTS);
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_stocks`, JSON.stringify(INITIAL_STOCKS));
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_equipment`, JSON.stringify(INITIAL_EQUIPMENT));
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_stock_movements`, JSON.stringify(INITIAL_STOCK_MOVEMENTS));
+  };
+
   const addExpense = (expense: Expense) => setExpenses(prev => [expense, ...prev]);
   const addChantier = (chantier: Chantier) => setChantiers(prev => [chantier, ...prev]);
   const addWorker = (worker: Worker) => setWorkers(prev => [worker, ...prev]);
@@ -1362,6 +2060,8 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAvenants(INITIAL_AVENANTS);
     setSituations(INITIAL_SITUATIONS);
     setStocks(INITIAL_STOCKS);
+    setEquipment(INITIAL_EQUIPMENT);
+    setStockMovements(INITIAL_STOCK_MOVEMENTS);
     setWorkers(INITIAL_WORKERS);
     setExpenses(INITIAL_EXPENSES);
     setSelectedMarketId('m-ecole-sba');
@@ -1379,6 +2079,7 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         avenants,
         situations,
         stocks,
+        stockMovements,
         purchaseOrders,
         equipment,
         cheques,
@@ -1408,6 +2109,13 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         validateSituation,
         addStockItem,
         updateStockQuantity,
+        updateStockItem,
+        deleteStockItem,
+        recordStockMovement,
+        addEquipment,
+        updateEquipment,
+        deleteEquipment,
+        resetStocksToDZDefaults,
         addCheque,
         updateChequeStatus,
         addExpense,

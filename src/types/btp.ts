@@ -232,17 +232,52 @@ export interface Situation {
   netToPayWordsFR: string; // Montant en toutes lettres
 }
 
-// LOGISTIQUE, ACHATS & STOCK
+// LOGISTIQUE, ACHATS, STOCKS & ENGINS BTP DZ
+export type StockCategory = 
+  | 'Bois'
+  | 'Ciment'
+  | 'Granulat'
+  | 'Sable'
+  | 'Plomberie'
+  | 'Électricité'
+  | 'Brique et bloc'
+  | 'Revêtement sol'
+  | 'Acier'
+  | 'Autre'
+  | 'Granulats'
+  | 'Briques & Maçonnerie'
+  | 'Plomberie & Élec'
+  | 'Bois & Coffrage';
+
+export type SteelDiameter = 6 | 8 | 10 | 12 | 16 | 20;
+
 export interface StockItem {
   id: string;
   chantierId: string;
   name: string;
-  category: 'Ciment' | 'Acier' | 'Granulats' | 'Briques & Maçonnerie' | 'Plomberie & Élec' | 'Bois & Coffrage';
-  unit: string;
+  category: StockCategory;
+  unit: string; // Bois: plaque | Ciment: sac | Granulat/Sable: m3 | Plomberie: ml/Unité | Élec: m.lineaire/Unité | Brique: unité/m2 | Sol: m3/carton/m2 | Acier: barre/tonne
+  steelDiameter?: SteelDiameter;
   quantityInStock: number;
   minThreshold: number;
   unitPriceCost: number;
   lastRestockedDate: string;
+  storageLocation?: string;
+  supplier?: string;
+}
+
+export interface StockMovement {
+  id: string;
+  stockItemId: string;
+  stockItemName: string;
+  chantierId: string;
+  type: 'Entrée (Réception BL)' | 'Sortie (Consommation)' | 'Inventaire & Ajustement';
+  quantity: number;
+  unit: string;
+  date: string;
+  referenceDoc?: string; // ex: BL N° 4512 / Bon de pesée / Bon de sortie coulage
+  destinationOrSource?: string; // ex: Coulage Poteaux R+1 / GICA Cimenterie
+  notes?: string;
 }
 
 export interface PurchaseOrder {
@@ -256,14 +291,44 @@ export interface PurchaseOrder {
   items: { description: string; quantity: number; unit: string; unitPrice: number; total: number }[];
 }
 
+export type EquipmentType = 
+  | 'Rétrocaveuse'
+  | 'Pelleteuse'
+  | 'Grue à tour'
+  | 'Bétonnière mobile'
+  | 'Camion malaxeur (Toupie)'
+  | 'Camion benne'
+  | 'Compacteur'
+  | 'Dumper'
+  | 'Groupe électrogène'
+  | 'Chariot télescopique'
+  | 'Petit matériel'
+  | 'Engin lourd'
+  | 'Grue'
+  | 'Bétonnière';
+
+export type EquipmentStatus = 
+  | 'Opérationnel'
+  | 'En mission / Sur chantier'
+  | 'En maintenance'
+  | 'En panne'
+  | 'À l\'arrêt'
+  | 'Au dépôt central';
+
 export interface MaterialEquipment {
   id: string;
   chantierId: string;
   name: string;
-  type: 'Engin lourd' | 'Grue' | 'Bétonnière' | 'Camion benne' | 'Petit matériel';
+  brandModel?: string;
+  type: EquipmentType;
   matricule: string;
-  status: 'Opérationnel' | 'En maintenance' | 'À l\'arrêt';
+  status: EquipmentStatus;
   driverName: string;
+  driverPhone?: string;
+  horametreHours?: number; // Heures moteur
+  fuelLitersPerDay?: number; // Consommation gasoil L/j
+  nextMaintenanceHours?: number; // Seuil vidange / révision
+  dailyRentalCostDA?: number; // Coût de revient journalier en DA
 }
 
 // FINANCE & CHÈQUES ALGÉRIE

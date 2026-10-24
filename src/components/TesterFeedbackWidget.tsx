@@ -38,7 +38,7 @@ const MODULE_NAMES: Record<ActiveTab, string> = {
   'avenants': 'Avenants & Dépassements',
   'situations': 'Situations & Facturation',
   'documents': 'Documents Officiels (PV, Ordres)',
-  'logistics': 'Logistique & Stocks',
+  'logistics': 'Stocks & Engins BTP',
   'finance': 'Finance & Chèques DZ',
   'hr': 'Ressources Humaines & Paie',
   'ai-metre': 'IA Métreur & Scanner Devis'
