@@ -23,12 +23,15 @@ import {
   ChevronDown,
   ChevronRight,
   PieChart,
-  Table
+  Table,
+  ShieldCheck,
+  Scale,
+  ShieldAlert
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 import { formatDA, formatNumberDZ, numberToWordsDZ, ALGERIAN_WILAYAS } from '../utils/dzFormatters';
 import { ActiveTab } from '../components/Sidebar';
-import { Market, Lot, Section, Chantier, DQEArticle } from '../types/btp';
+import { Market, Lot, Section, Chantier, DQEArticle, GuaranteeModality } from '../types/btp';
 
 interface IAMetreurViewProps {
   onNavigate?: (tab: ActiveTab) => void;
@@ -675,6 +678,10 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
   const [wilayaCoeff, setWilayaCoeff] = useState<number>(1.0);
   const [tvaRate, setTvaRate] = useState<9 | 19>(9);
 
+  // Guarantee Modality selection (Caution de Bonne Exécution vs Retenue de Garantie)
+  const [guaranteeModality, setGuaranteeModality] = useState<GuaranteeModality>('caution_bonne_execution');
+  const [customBankName, setCustomBankName] = useState<string>('BNA Agence 412 Sidi Bel Abbès');
+
   // Collapsible Lot Sections in UI
   const [expandedLots, setExpandedLots] = useState<Record<string, boolean>>({
     'LOT 01': true,
@@ -794,6 +801,9 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
     lotsCount: number;
     sectionsCount: number;
     articlesCount: number;
+    guaranteeModality: GuaranteeModality;
+    cautionAmount: number;
+    retenueRate: number;
   } | null>(null);
 
   const [injectSuccess, setInjectSuccess] = useState<boolean>(false);
@@ -871,6 +881,13 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
     const newMarketId = `m-${Date.now()}`;
     const today = new Date().toISOString().split('T')[0];
 
+    const chosenRetenueRate: 0 | 5 | 10 = 
+      (guaranteeModality === 'retenue_garantie' || guaranteeModality === 'both') ? 5 : 0;
+    const chosenCautionAmount = 
+      (guaranteeModality === 'caution_bonne_execution' || guaranteeModality === 'both') 
+        ? Math.round(totalBpuHT * 0.05) 
+        : 0;
+
     // 1. Création de l'Entité Marché
     const newMarket: Market = {
       id: newMarketId,
@@ -887,16 +904,17 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
       durationMonths: extractedDuration || 14,
       status: 'En cours',
       tvaRate: tvaRate,
-      retenueGarantieRate: 5,
+      retenueGarantieRate: chosenRetenueRate,
+      guaranteeModality: guaranteeModality,
       avanceForfaitaireRate: 15,
       avanceApproRate: 20,
       initialAmountHT: totalBpuHT,
       currentAmountHT: totalBpuHT,
       bankGuarantees: {
         soumission: Math.round(totalBpuHT * 0.01),
-        bonneExecution: Math.round(totalBpuHT * 0.05),
+        bonneExecution: chosenCautionAmount,
         restitutionAvance: Math.round(totalBpuHT * 0.15),
-        bankName: 'BNA Agence Centrale',
+        bankName: customBankName.trim() || 'BNA Agence Centrale',
         expiryDate: '2027-12-31'
       }
     };
@@ -992,7 +1010,10 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
       totalTTC: totalBpuTTC,
       lotsCount: createdLotsCount,
       sectionsCount: createdSectionsCount,
-      articlesCount: createdArticlesCount
+      articlesCount: createdArticlesCount,
+      guaranteeModality: guaranteeModality,
+      cautionAmount: chosenCautionAmount,
+      retenueRate: chosenRetenueRate
     });
   };
 
@@ -1338,6 +1359,182 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* ZONE 2.B : PROPOSITION IA DE GARANTIE FINANCIÈRE (RETENUE OU CAUTION) */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700">
+                  <ShieldCheck className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    Proposition IA : Modalité de Garantie Contractuelle
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      Code des Marchés Publics DZ
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Décret Présidentiel N° 15-247 (Art. 130 à 135) : Choisissez la modalité de garantie à appliquer pour ce projet
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Base Garantie (5% HT)</span>
+                <strong className="text-xs font-mono font-black text-emerald-700">
+                  {formatDA(Math.round(totalBpuHT * 0.05))}
+                </strong>
+              </div>
+            </div>
+
+            {/* 4 Interactive Modality Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              {/* Option 1: Caution de Bonne Exécution */}
+              <div 
+                onClick={() => setGuaranteeModality('caution_bonne_execution')}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-2 relative ${
+                  guaranteeModality === 'caution_bonne_execution'
+                    ? 'bg-blue-50/60 border-blue-500 shadow-xs ring-2 ring-blue-500/20'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
+                    <ShieldCheck className="w-4 h-4" />
+                  </span>
+                  {guaranteeModality === 'caution_bonne_execution' && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-600 text-white flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Recommandé
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <strong className="text-slate-900 font-bold block">Caution de Bonne Exécution (5%)</strong>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Lettre de garantie bancaire déposée. <strong>Aucune retenue (0%)</strong> sur les décomptes mensuels (trésorerie 100% préservée).
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-[11px] font-mono">
+                  <span className="text-slate-400">Montant Caution :</span>
+                  <strong className="text-blue-700 font-bold">{formatDA(Math.round(totalBpuHT * 0.05))}</strong>
+                </div>
+              </div>
+
+              {/* Option 2: Retenue de Garantie */}
+              <div 
+                onClick={() => setGuaranteeModality('retenue_garantie')}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-2 relative ${
+                  guaranteeModality === 'retenue_garantie'
+                    ? 'bg-amber-50/60 border-amber-500 shadow-xs ring-2 ring-amber-500/20'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="p-1.5 rounded-lg bg-amber-100 text-amber-800">
+                    <Scale className="w-4 h-4" />
+                  </span>
+                  {guaranteeModality === 'retenue_garantie' && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500 text-slate-950 flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Choisi
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <strong className="text-slate-900 font-bold block">Retenue de Garantie (5%)</strong>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Prélèvement automatique de <strong>5% sur chaque décompte mensuel</strong> consigné au Trésor Public jusqu'à la Réception Définitive (1 an).
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-[11px] font-mono">
+                  <span className="text-slate-400">Total consigné :</span>
+                  <strong className="text-amber-700 font-bold">{formatDA(Math.round(totalBpuHT * 0.05))}</strong>
+                </div>
+              </div>
+
+              {/* Option 3: Double Garantie */}
+              <div 
+                onClick={() => setGuaranteeModality('both')}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-2 relative ${
+                  guaranteeModality === 'both'
+                    ? 'bg-indigo-50/60 border-indigo-500 shadow-xs ring-2 ring-indigo-500/20'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
+                    <Building2 className="w-4 h-4" />
+                  </span>
+                  {guaranteeModality === 'both' && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-indigo-600 text-white flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Choisi
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <strong className="text-slate-900 font-bold block">Double Garantie (Caution + Retenue)</strong>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Caution bancaire 5% + Retenue de 5% sur chaque décompte pour ouvrages complexes ou sensibles.
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-[11px] font-mono">
+                  <span className="text-slate-400">Total combiné :</span>
+                  <strong className="text-indigo-700 font-bold">{formatDA(Math.round(totalBpuHT * 0.10))}</strong>
+                </div>
+              </div>
+
+              {/* Option 4: Sans retenue ni caution */}
+              <div 
+                onClick={() => setGuaranteeModality('none')}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-2 relative ${
+                  guaranteeModality === 'none'
+                    ? 'bg-slate-100 border-slate-500 shadow-xs ring-2 ring-slate-500/20'
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700">
+                    <ShieldAlert className="w-4 h-4" />
+                  </span>
+                  {guaranteeModality === 'none' && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-slate-900 text-white flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Choisi
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <strong className="text-slate-900 font-bold block">Sans Retenue ni Caution (0%)</strong>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Conventions simples de gré à gré, bons de commande ou prestations sans consignation.
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-[11px] font-mono">
+                  <span className="text-slate-400">Garantie :</span>
+                  <strong className="text-slate-600 font-bold">0 DA</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Bank input if Caution is chosen */}
+            {(guaranteeModality === 'caution_bonne_execution' || guaranteeModality === 'both') && (
+              <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Landmark className="w-4 h-4 text-blue-700 shrink-0" />
+                  <div>
+                    <strong className="text-blue-900 block">Banque Émettrice de la Caution de Bonne Exécution</strong>
+                    <span className="text-[11px] text-blue-700">Agence bancaire agréée délivrant l'acte de caution</span>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  value={customBankName}
+                  onChange={(e) => setCustomBankName(e.target.value)}
+                  placeholder="ex: BNA Agence 412 Sidi Bel Abbès"
+                  className="w-full sm:w-80 px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-slate-900 font-bold text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+            )}
           </div>
 
           {/* ZONE 3 : TABLEAU RÉCAPITULATIF PAR LOT (SOUS-TOTAL DE CHAQUE LOT) */}
@@ -1824,6 +2021,29 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
                   <div className="sm:col-span-2">
                     <span className="text-[10px] text-slate-400 block">Montant Total TTC ({tvaRate}%)</span>
                     <strong className="text-emerald-700 font-mono font-black">{formatDA(createdProjectModal.totalTTC)}</strong>
+                  </div>
+                  <div className="sm:col-span-3 pt-2 border-t border-slate-200">
+                    <span className="text-[10px] text-slate-400 block">Modalité de Garantie Financière Choisi</span>
+                    <strong className="text-slate-800 flex items-center gap-1.5 mt-0.5">
+                      {createdProjectModal.guaranteeModality === 'caution_bonne_execution' ? (
+                        <>
+                          <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                          <span>Caution Bancaire (5%) : {formatDA(createdProjectModal.cautionAmount)} ({customBankName}) • Retenue 0% sur décomptes</span>
+                        </>
+                      ) : createdProjectModal.guaranteeModality === 'retenue_garantie' ? (
+                        <>
+                          <Scale className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Retenue de Garantie (5%) : Prélèvement sur situations mensuelles (consigné au Trésor)</span>
+                        </>
+                      ) : createdProjectModal.guaranteeModality === 'both' ? (
+                        <>
+                          <Building2 className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <span>Double Garantie : Caution 5% ({formatDA(createdProjectModal.cautionAmount)}) + Retenue 5%</span>
+                        </>
+                      ) : (
+                        <span>Sans retenue ni caution (0%)</span>
+                      )}
+                    </strong>
                   </div>
                 </div>
               </div>

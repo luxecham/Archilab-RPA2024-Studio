@@ -26,6 +26,12 @@ export interface Tender {
 export type MarketType = 'Marché Public' | 'Convention' | 'Contrat' | 'Bon de Commande';
 export type MarketStatus = 'En cours' | 'En arrêt' | 'Réception Provisoire' | 'Réception Définitive' | 'Clôturé' | 'Archivé';
 
+export type GuaranteeModality = 
+  | 'caution_bonne_execution' 
+  | 'retenue_garantie' 
+  | 'both' 
+  | 'none';
+
 export interface Market {
   id: string;
   type: MarketType;
@@ -43,7 +49,8 @@ export interface Market {
   
   // Paramètres financiers réglementaires algériens
   tvaRate: 9 | 19; // 9% pour le logement social/public et travaux spécifiques, 19% régime général
-  retenueGarantieRate: 5 | 10; // 5% standard marchés publics DZ
+  retenueGarantieRate: 0 | 5 | 10; // 5% standard marchés publics DZ, 0% si caution seule
+  guaranteeModality?: GuaranteeModality;
   avanceForfaitaireRate: number; // 15% max
   avanceApproRate: number; // jusqu'à 35%
   

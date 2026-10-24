@@ -21,12 +21,13 @@ import {
   Archive,
   ArchiveRestore,
   Trash2,
-  AlertOctagon
+  AlertOctagon,
+  ShieldCheck
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 import { formatDA, formatNumberDZ, ALGERIAN_WILAYAS } from '../utils/dzFormatters';
 import { ActiveTab } from '../components/Sidebar';
-import { Market, MarketType, Lot, Chantier } from '../types/btp';
+import { Market, MarketType, Lot, Chantier, GuaranteeModality } from '../types/btp';
 
 interface DashboardViewProps {
   onNavigate: (tab: ActiveTab) => void;
@@ -81,6 +82,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [newRetenueGarantieRate, setNewRetenueGarantieRate] = useState<5 | 10>(5);
   const [newOdsDate, setNewOdsDate] = useState(new Date().toISOString().split('T')[0]);
   const [newDurationMonths, setNewDurationMonths] = useState<number>(12);
+  const [newGuaranteeModality, setNewGuaranteeModality] = useState<GuaranteeModality>('caution_bonne_execution');
+  const [newBankName, setNewBankName] = useState('BNA Agence Centrale Sidi Bel Abbès');
 
   // Modal State for Project Deletion Confirmation
   const [projectToDelete, setProjectToDelete] = useState<Market | null>(null);
@@ -193,6 +196,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
     const newMarketId = `m-${Date.now()}`;
     const initialAmount = Number(newInitialAmountHT) || 0;
+    const chosenRG: 0 | 5 | 10 = 
+      (newGuaranteeModality === 'retenue_garantie' || newGuaranteeModality === 'both') ? 5 : 0;
+    const chosenCaution = 
+      (newGuaranteeModality === 'caution_bonne_execution' || newGuaranteeModality === 'both') 
+        ? Math.round(initialAmount * 0.05) 
+        : 0;
 
     const newM: Market = {
       id: newMarketId,
@@ -209,16 +218,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       durationMonths: Number(newDurationMonths) || 12,
       status: 'En cours',
       tvaRate: newTvaRate,
-      retenueGarantieRate: newRetenueGarantieRate,
+      retenueGarantieRate: chosenRG,
+      guaranteeModality: newGuaranteeModality,
       avanceForfaitaireRate: 15,
       avanceApproRate: 20,
       initialAmountHT: initialAmount,
       currentAmountHT: initialAmount,
       bankGuarantees: {
         soumission: Math.round(initialAmount * 0.01),
-        bonneExecution: Math.round(initialAmount * 0.05),
+        bonneExecution: chosenCaution,
         restitutionAvance: Math.round(initialAmount * 0.15),
-        bankName: 'BNA Agence Centrale',
+        bankName: newBankName.trim() || 'BNA Agence Centrale',
         expiryDate: '2027-12-31'
       }
     };
@@ -547,15 +557,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </strong>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/50">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Taux TVA / Retenue</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Garantie Contractuelle</span>
               <strong className="text-xs sm:text-sm font-bold text-slate-800 mt-0.5 block">
-                TVA {currentMarket.tvaRate}% • RG {currentMarket.retenueGarantieRate}%
+                {currentMarket.bankGuarantees?.bonneExecution > 0 && currentMarket.retenueGarantieRate > 0 ? (
+                  <span className="text-indigo-700 flex items-center justify-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Caution 5% + Retenue 5%
+                  </span>
+                ) : currentMarket.bankGuarantees?.bonneExecution > 0 ? (
+                  <span className="text-blue-700 flex items-center justify-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Caution Bancaire 5%
+                  </span>
+                ) : currentMarket.retenueGarantieRate > 0 ? (
+                  <span className="text-amber-800 flex items-center justify-center gap-1">
+                    <Scale className="w-3.5 h-3.5" /> Retenue {currentMarket.retenueGarantieRate}%
+                  </span>
+                ) : (
+                  <span className="text-slate-500">Sans garantie (0%)</span>
+                )}
               </strong>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/50">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Caution Bonne Exécution (5%)</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                {currentMarket.bankGuarantees?.bonneExecution > 0 ? 'Caution de Bonne Exécution' : 'Retenue Consignée (5%)'}
+              </span>
               <strong className="text-xs sm:text-sm font-mono font-bold text-emerald-700 mt-0.5 block">
-                {formatDA(currentMarket.bankGuarantees.bonneExecution)}
+                {currentMarket.bankGuarantees?.bonneExecution > 0 
+                  ? formatDA(currentMarket.bankGuarantees.bonneExecution)
+                  : formatDA(totalRetenueGarantie)}
               </strong>
             </div>
           </div>
@@ -728,6 +756,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                             }`}>
                               {m.status}
                             </span>
+                            {m.bankGuarantees?.bonneExecution > 0 ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800 flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3 text-blue-600" /> Caution 5%
+                              </span>
+                            ) : m.retenueGarantieRate > 0 ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 flex items-center gap-1">
+                                <Scale className="w-3 h-3 text-amber-600" /> Retenue 5%
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-500">
+                                Sans garantie
+                              </span>
+                            )}
                             {isSelected && (
                               <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-600 text-white flex items-center gap-0.5">
                                 <Check className="w-3 h-3" />
@@ -1096,6 +1137,73 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl font-bold"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-blue-600" />
+                    <span>Garantie Financière (Code des Marchés Publics DZ)</span>
+                  </label>
+                  <span className="text-[10px] text-blue-700 font-mono font-bold">
+                    {newGuaranteeModality === 'caution_bonne_execution' 
+                      ? `Caution : ${formatDA(Math.round(newInitialAmountHT * 0.05))}` 
+                      : newGuaranteeModality === 'retenue_garantie' 
+                      ? `Retenue 5% : ${formatDA(Math.round(newInitialAmountHT * 0.05))}`
+                      : newGuaranteeModality === 'both'
+                      ? `Double : ${formatDA(Math.round(newInitialAmountHT * 0.10))}`
+                      : '0 DA'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setNewGuaranteeModality('caution_bonne_execution')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      newGuaranteeModality === 'caution_bonne_execution'
+                        ? 'bg-blue-50/70 border-blue-500 ring-1 ring-blue-500 font-bold text-blue-900'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">🛡️ Caution de Bonne Exécution (5%)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-normal">
+                      Lettre de garantie bancaire. Retenue sur situations : <strong>0%</strong>.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewGuaranteeModality('retenue_garantie')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      newGuaranteeModality === 'retenue_garantie'
+                        ? 'bg-amber-50/70 border-amber-500 ring-1 ring-amber-500 font-bold text-amber-950'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">⚖️ Retenue de Garantie (5%)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-normal">
+                      Prélèvement de 5% consigné sur chaque situation mensuelle.
+                    </span>
+                  </button>
+                </div>
+
+                {(newGuaranteeModality === 'caution_bonne_execution' || newGuaranteeModality === 'both') && (
+                  <div className="pt-1">
+                    <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Banque Émettrice de la Caution</label>
+                    <input
+                      type="text"
+                      value={newBankName}
+                      onChange={(e) => setNewBankName(e.target.value)}
+                      placeholder="ex: BNA Agence Centrale Sidi Bel Abbès"
+                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
