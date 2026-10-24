@@ -1630,7 +1630,19 @@ const LOCAL_STORAGE_KEY = 'archilab_manager_dz_v3';
 
 export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [lang, setLang] = useState<'fr' | 'ar'>('fr');
-  const [selectedMarketId, setSelectedMarketId] = useState<string>('m-ecole-sba');
+  const [selectedMarketId, setSelectedMarketId] = useState<string>(() => {
+    try {
+      const savedMarkets = localStorage.getItem(`${LOCAL_STORAGE_KEY}_markets`);
+      if (savedMarkets) {
+        const parsed = JSON.parse(savedMarkets);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const active = parsed.find((m: any) => m.status !== 'Archivé') || parsed[0];
+          return active ? active.id : '';
+        }
+      }
+    } catch (e) {}
+    return INITIAL_MARKETS[0]?.id || '';
+  });
 
   const [markets, setMarkets] = useState<Market[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_markets`);
@@ -1674,25 +1686,32 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [stocks, setStocks] = useState<StockItem[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_stocks`);
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.some(s => s.category === 'Bois')) {
-          return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
     return INITIAL_STOCKS;
   });
 
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(INITIAL_PURCHASE_ORDERS);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_purchase_orders`);
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_PURCHASE_ORDERS;
+  });
   
   const [equipment, setEquipment] = useState<MaterialEquipment[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_equipment`);
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
     return INITIAL_EQUIPMENT;
@@ -1700,23 +1719,49 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_stock_movements`);
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
     return INITIAL_STOCK_MOVEMENTS;
   });
 
-  const [cheques, setCheques] = useState<ChequePayment[]>(INITIAL_CHEQUES);
+  const [cheques, setCheques] = useState<ChequePayment[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_cheques`);
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_CHEQUES;
+  });
+
   const [workers, setWorkers] = useState<Worker[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_workers`);
-    return saved ? JSON.parse(saved) : INITIAL_WORKERS;
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_WORKERS;
   });
-  const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
 
-  // Sync state
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_expenses`);
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_EXPENSES;
+  });
+
+  // Sync state with localStorage
   useEffect(() => {
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_markets`, JSON.stringify(markets));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_lots`, JSON.stringify(lots));
@@ -1730,24 +1775,98 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_equipment`, JSON.stringify(equipment));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_stock_movements`, JSON.stringify(stockMovements));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_workers`, JSON.stringify(workers));
-  }, [markets, lots, sections, articles, chantiers, attachements, avenants, situations, stocks, equipment, stockMovements, workers]);
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_cheques`, JSON.stringify(cheques));
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_expenses`, JSON.stringify(expenses));
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_purchase_orders`, JSON.stringify(purchaseOrders));
+  }, [markets, lots, sections, articles, chantiers, attachements, avenants, situations, stocks, equipment, stockMovements, workers, cheques, expenses, purchaseOrders]);
+
+  // Synchronisation automatique : Si selectedMarketId ne correspond plus à un marché existant, basculer sur un marché actif valide
+  useEffect(() => {
+    if (markets.length > 0 && !markets.some(m => m.id === selectedMarketId)) {
+      const nextMarket = markets.find(m => m.status !== 'Archivé') || markets[0];
+      setSelectedMarketId(nextMarket ? nextMarket.id : '');
+    }
+  }, [markets, selectedMarketId]);
 
   const addMarket = (market: Market) => setMarkets(prev => [market, ...prev]);
   const updateMarket = (updated: Market) => setMarkets(prev => prev.map(m => m.id === updated.id ? updated : m));
+  
+  // SUPPRESSION RADICALE EN CASCADE : Supprime le marché et toutes ses dépendances (DQE, Lots, Sections, Articles, Chantiers, Situations, Attachements, Avenants, Dépenses, Chèques, Stocks, Ouvriers)
   const deleteMarket = (marketId: string) => {
-    setMarkets(prev => {
-      const remaining = prev.filter(m => m.id !== marketId);
-      if (selectedMarketId === marketId && remaining.length > 0) {
-        setSelectedMarketId(remaining[0].id);
-      }
-      return remaining;
+    // 1. Définir les marchés et chantiers restants valides
+    const remainingMarkets = markets.filter(m => m.id !== marketId);
+    const remainingMarketIds = new Set(remainingMarkets.map(m => m.id));
+    const remainingChantiers = chantiers.filter(c => remainingMarketIds.has(c.marketId));
+    const remainingChantierIds = new Set(remainingChantiers.map(c => c.id));
+
+    // 2. Basculer proprement le marché actif
+    if (selectedMarketId === marketId) {
+      const nextMarket = remainingMarkets.find(m => m.status !== 'Archivé') || remainingMarkets[0];
+      const nextMarketId = nextMarket ? nextMarket.id : '';
+      setSelectedMarketId(nextMarketId);
+    }
+
+    // 3. Calculer les listes purgées en cascade
+    const nextLots = lots.filter(l => remainingMarketIds.has(l.marketId));
+    const nextLotIds = new Set(nextLots.map(l => l.id));
+    const nextSections = sections.filter(sec => nextLotIds.has(sec.lotId));
+    const nextArticles = articles.filter(a => remainingMarketIds.has(a.marketId));
+    const nextAttachements = attachements.filter(att => remainingMarketIds.has(att.marketId));
+    const nextAvenants = avenants.filter(av => remainingMarketIds.has(av.marketId));
+    const nextSituations = situations.filter(sit => remainingMarketIds.has(sit.marketId));
+
+    // 4. Purger la Finance et Comptabilité (dépenses & chèques liés au marché ou à ses chantiers)
+    const nextExpenses = expenses.filter(e => remainingMarketIds.has(e.marketId) && (!e.chantierId || remainingChantierIds.has(e.chantierId)));
+    const nextCheques = cheques.filter(ch => {
+      if (ch.marketId && !remainingMarketIds.has(ch.marketId)) return false;
+      if (ch.chantierId && !remainingChantierIds.has(ch.chantierId)) return false;
+      return true;
     });
-    setLots(prev => prev.filter(l => l.marketId !== marketId));
-    setArticles(prev => prev.filter(a => a.marketId !== marketId));
-    setChantiers(prev => prev.filter(c => c.marketId !== marketId));
-    setAttachements(prev => prev.filter(att => att.marketId !== marketId));
-    setAvenants(prev => prev.filter(av => av.marketId !== marketId));
-    setSituations(prev => prev.filter(sit => sit.marketId !== marketId));
+
+    // 5. Purger les Ouvriers des chantiers supprimés
+    const nextWorkers = workers.filter(w => remainingChantierIds.has(w.chantierId));
+
+    // 6. Purger Stocks, Engins, Commandes et Mouvements des chantiers supprimés
+    const nextStocks = stocks.filter(s => remainingChantierIds.has(s.chantierId));
+    const nextEquipment = equipment.filter(eq => remainingChantierIds.has(eq.chantierId));
+    const nextPurchaseOrders = purchaseOrders.filter(po => remainingChantierIds.has(po.chantierId));
+    const nextStockMovements = stockMovements.filter(mov => remainingChantierIds.has(mov.chantierId));
+
+    // 7. Mise à jour synchrone de tous les états React
+    setMarkets(remainingMarkets);
+    setLots(nextLots);
+    setSections(nextSections);
+    setArticles(nextArticles);
+    setChantiers(remainingChantiers);
+    setAttachements(nextAttachements);
+    setAvenants(nextAvenants);
+    setSituations(nextSituations);
+    setExpenses(nextExpenses);
+    setCheques(nextCheques);
+    setWorkers(nextWorkers);
+    setStocks(nextStocks);
+    setEquipment(nextEquipment);
+    setPurchaseOrders(nextPurchaseOrders);
+    setStockMovements(nextStockMovements);
+
+    // 8. Écriture immédiate dans localStorage pour persistance sans latence
+    try {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_markets`, JSON.stringify(remainingMarkets));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_lots`, JSON.stringify(nextLots));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_sections`, JSON.stringify(nextSections));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_articles`, JSON.stringify(nextArticles));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_chantiers`, JSON.stringify(remainingChantiers));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_attachements`, JSON.stringify(nextAttachements));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_avenants`, JSON.stringify(nextAvenants));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_situations`, JSON.stringify(nextSituations));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_expenses`, JSON.stringify(nextExpenses));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_cheques`, JSON.stringify(nextCheques));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_workers`, JSON.stringify(nextWorkers));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_stocks`, JSON.stringify(nextStocks));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_equipment`, JSON.stringify(nextEquipment));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_purchase_orders`, JSON.stringify(nextPurchaseOrders));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_stock_movements`, JSON.stringify(nextStockMovements));
+    } catch (e) {}
   };
   const archiveMarket = (marketId: string) => {
     setMarkets(prev => prev.map(m => m.id === marketId ? { ...m, status: 'Archivé' as MarketStatus } : m));

@@ -52,6 +52,7 @@ export const LogisticsView: React.FC = () => {
     purchaseOrders, 
     equipment, 
     chantiers, 
+    markets,
     addStockItem, 
     updateStockQuantity, 
     deleteStockItem, 
@@ -61,6 +62,10 @@ export const LogisticsView: React.FC = () => {
     deleteEquipment,
     resetStocksToDZDefaults
   } = useBTP();
+
+  // Filtrage strict : seuls les chantiers dont le marché existe sont conservés
+  const validChantiers = useMemo(() => chantiers.filter(c => markets.some(m => m.id === c.marketId)), [chantiers, markets]);
+  const validChantierIds = useMemo(() => validChantiers.map(c => c.id), [validChantiers]);
 
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'stocks' | 'steel' | 'equipment' | 'movements' | 'orders'>('stocks');
@@ -118,9 +123,10 @@ export const LogisticsView: React.FC = () => {
     setNewStockUnit(allowed[0]);
   };
 
-  // Filtered stocks
+  // Filtered stocks (strictement rattachés aux chantiers des marchés existants)
   const filteredStocks = useMemo(() => {
     return stocks.filter(s => {
+      if (!validChantierIds.includes(s.chantierId)) return false;
       const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             s.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (s.supplier && s.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -128,26 +134,29 @@ export const LogisticsView: React.FC = () => {
       const matchesCategory = selectedCategory === 'all' || s.category === selectedCategory;
       return matchesSearch && matchesChantier && matchesCategory;
     });
-  }, [stocks, searchTerm, selectedChantierId, selectedCategory]);
+  }, [stocks, validChantierIds, searchTerm, selectedChantierId, selectedCategory]);
 
   // Total stock value in DA
   const totalStockValuation = useMemo(() => {
-    return stocks.reduce((sum, item) => sum + (item.quantityInStock * item.unitPriceCost), 0);
-  }, [stocks]);
+    return stocks
+      .filter(s => validChantierIds.includes(s.chantierId))
+      .reduce((sum, item) => sum + (item.quantityInStock * item.unitPriceCost), 0);
+  }, [stocks, validChantierIds]);
 
   // Low stock items count
   const lowStockCount = useMemo(() => {
-    return stocks.filter(s => s.quantityInStock <= s.minThreshold).length;
-  }, [stocks]);
+    return stocks.filter(s => validChantierIds.includes(s.chantierId) && s.quantityInStock <= s.minThreshold).length;
+  }, [stocks, validChantierIds]);
 
   // Operational equipment count
   const operationalEqCount = useMemo(() => {
-    return equipment.filter(e => e.status === 'Opérationnel' || e.status === 'En mission / Sur chantier').length;
-  }, [equipment]);
+    return equipment.filter(e => validChantierIds.includes(e.chantierId) && (e.status === 'Opérationnel' || e.status === 'En mission / Sur chantier')).length;
+  }, [equipment, validChantierIds]);
 
   // Filtered equipment
   const filteredEquipment = useMemo(() => {
     return equipment.filter(e => {
+      if (!validChantierIds.includes(e.chantierId)) return false;
       const matchesSearch = e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             e.matricule.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             e.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -156,7 +165,23 @@ export const LogisticsView: React.FC = () => {
       const matchesStatus = equipmentStatusFilter === 'all' || e.status === equipmentStatusFilter;
       return matchesSearch && matchesChantier && matchesStatus;
     });
-  }, [equipment, searchTerm, selectedChantierId, equipmentStatusFilter]);
+  }, [equipment, validChantierIds, searchTerm, selectedChantierId, equipmentStatusFilter]);
+
+  // Filtered movements (BL / BS)
+  const filteredMovements = useMemo(() => {
+    return stockMovements.filter(m => {
+      if (!validChantierIds.includes(m.chantierId)) return false;
+      return selectedChantierId === 'all' || m.chantierId === selectedChantierId;
+    });
+  }, [stockMovements, validChantierIds, selectedChantierId]);
+
+  // Filtered purchase orders
+  const filteredPurchaseOrders = useMemo(() => {
+    return purchaseOrders.filter(po => {
+      if (!validChantierIds.includes(po.chantierId)) return false;
+      return selectedChantierId === 'all' || po.chantierId === selectedChantierId;
+    });
+  }, [purchaseOrders, validChantierIds, selectedChantierId]);
 
   // Handle create new stock
   const handleAddStock = (e: React.FormEvent) => {
@@ -165,7 +190,7 @@ export const LogisticsView: React.FC = () => {
 
     const newItem: StockItem = {
       id: `stk-${Date.now()}`,
-      chantierId: selectedChantierId === 'all' ? chantiers[0]?.id || 'ch-ecole-sba' : selectedChantierId,
+      chantierId: selectedChantierId === 'all' ? validChantiers[0]?.id || '' : selectedChantierId,
       name: newStockName,
       category: newStockCategory,
       unit: newStockUnit,
@@ -227,7 +252,7 @@ export const LogisticsView: React.FC = () => {
 
     const newMachine: MaterialEquipment = {
       id: `eq-${Date.now()}`,
-      chantierId: selectedChantierId === 'all' ? chantiers[0]?.id || 'ch-ecole-sba' : selectedChantierId,
+      chantierId: selectedChantierId === 'all' ? validChantiers[0]?.id || '' : selectedChantierId,
       name: newEqName,
       brandModel: newEqBrand || newEqName,
       type: newEqType,
@@ -399,7 +424,7 @@ export const LogisticsView: React.FC = () => {
           </div>
           <div className="mt-2">
             <span className="text-lg sm:text-xl font-black text-slate-900 font-mono">
-              {stockMovements.length} <span className="text-xs font-bold text-slate-500">vouchers</span>
+              {filteredMovements.length} <span className="text-xs font-bold text-slate-500">vouchers</span>
             </span>
             <span className="text-[11px] text-slate-400 block mt-0.5">
               Réceptions BL & Bons de sortie
@@ -424,7 +449,7 @@ export const LogisticsView: React.FC = () => {
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
               activeTab === 'stocks' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
             }`}>
-              {stocks.length}
+              {filteredStocks.length}
             </span>
           </button>
 
@@ -453,7 +478,7 @@ export const LogisticsView: React.FC = () => {
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
               activeTab === 'equipment' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
             }`}>
-              {equipment.length}
+              {filteredEquipment.length}
             </span>
           </button>
 
@@ -470,7 +495,7 @@ export const LogisticsView: React.FC = () => {
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
               activeTab === 'movements' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
             }`}>
-              {stockMovements.length}
+              {filteredMovements.length}
             </span>
           </button>
 
@@ -483,7 +508,7 @@ export const LogisticsView: React.FC = () => {
             }`}
           >
             <ShoppingCart className="w-3.5 h-3.5" />
-            <span>Bons de Commande ({purchaseOrders.length})</span>
+            <span>Bons de Commande ({filteredPurchaseOrders.length})</span>
           </button>
         </div>
 
@@ -495,7 +520,7 @@ export const LogisticsView: React.FC = () => {
             className="text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-200 bg-white shadow-xs"
           >
             <option value="all">📍 Tous les Chantiers Réunis</option>
-            {chantiers.map(c => (
+            {validChantiers.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
@@ -1176,7 +1201,7 @@ export const LogisticsView: React.FC = () => {
               </p>
             </div>
             <span className="text-xs font-bold text-slate-500">
-              Total : {stockMovements.length} mouvements
+              Total : {filteredMovements.length} mouvements
             </span>
           </div>
 
@@ -1195,7 +1220,7 @@ export const LogisticsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {stockMovements.map(mov => {
+                  {filteredMovements.map(mov => {
                     const isEntry = mov.type.startsWith('Entrée');
                     const isExit = mov.type.startsWith('Sortie');
 
@@ -1263,7 +1288,7 @@ export const LogisticsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {purchaseOrders.map(po => (
+                {filteredPurchaseOrders.map(po => (
                   <tr key={po.id} className="hover:bg-slate-50">
                     <td className="py-3 px-4 font-mono font-bold text-blue-700">{po.orderNumber}</td>
                     <td className="py-3 px-4 font-semibold text-slate-900">{po.supplierName}</td>

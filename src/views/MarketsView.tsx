@@ -71,15 +71,15 @@ export const MarketsView: React.FC = () => {
   const marketArticles = articles.filter(a => a.marketId === currentMarket?.id);
 
   // Financial synthesis
-  const initialHT = currentMarket.initialAmountHT;
-  const initialTTC = initialHT * (1 + currentMarket.tvaRate / 100);
-  const currentHT = currentMarket.currentAmountHT;
-  const currentTTC = currentHT * (1 + currentMarket.tvaRate / 100);
+  const initialHT = currentMarket ? currentMarket.initialAmountHT : 0;
+  const initialTTC = currentMarket ? initialHT * (1 + currentMarket.tvaRate / 100) : 0;
+  const currentHT = currentMarket ? currentMarket.currentAmountHT : 0;
+  const currentTTC = currentMarket ? currentHT * (1 + currentMarket.tvaRate / 100) : 0;
   const deltaAvenantsHT = currentHT - initialHT;
 
   const handleCreateLot = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLotName.trim()) return;
+    if (!newLotName.trim() || !currentMarket) return;
     const newL: Lot = {
       id: `lot-${Date.now()}`,
       marketId: currentMarket.id,

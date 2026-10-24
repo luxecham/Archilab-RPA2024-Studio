@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Landmark, 
   Receipt, 
@@ -46,25 +46,30 @@ export const FinanceView: React.FC = () => {
   const [expenseAmount, setExpenseAmount] = useState<number>(50000);
   const [expenseMode, setExpenseMode] = useState<Expense['paymentMode']>('Espèces (Caisse)');
 
+  const validMarketIds = useMemo(() => new Set(markets.map(m => m.id)), [markets]);
   const currentMarket = markets.find(m => m.id === selectedMarketId) || markets[0];
 
+  // Cheques & Dépenses strictement filtrés sur les marchés existants
+  const validCheques = useMemo(() => cheques.filter(c => !c.marketId || validMarketIds.has(c.marketId)), [cheques, validMarketIds]);
+  const validExpenses = useMemo(() => expenses.filter(e => validMarketIds.has(e.marketId)), [expenses, validMarketIds]);
+
   // Cheque calculations
-  const totalChequesRecus = cheques.filter(c => c.type === 'Reçu').reduce((acc, c) => acc + c.amountDA, 0);
-  const totalChequesEmis = cheques.filter(c => c.type === 'Émis').reduce((acc, c) => acc + c.amountDA, 0);
-  const totalEncaisse = cheques.filter(c => c.type === 'Reçu' && c.status === 'Encaissé').reduce((acc, c) => acc + c.amountDA, 0);
+  const totalChequesRecus = validCheques.filter(c => c.type === 'Reçu').reduce((acc, c) => acc + c.amountDA, 0);
+  const totalChequesEmis = validCheques.filter(c => c.type === 'Émis').reduce((acc, c) => acc + c.amountDA, 0);
+  const totalEncaisse = validCheques.filter(c => c.type === 'Reçu' && c.status === 'Encaissé').reduce((acc, c) => acc + c.amountDA, 0);
 
   // Profitability per market
-  const marketSituations = situations.filter(s => s.marketId === currentMarket?.id && s.status === 'Validée / Payée');
+  const marketSituations = situations.filter(s => currentMarket && s.marketId === currentMarket.id && s.status === 'Validée / Payée');
   const marketIncome = marketSituations.reduce((acc, s) => acc + s.netToPayTTC, 0);
-  const marketExpenses = expenses.filter(e => e.marketId === currentMarket?.id).reduce((acc, e) => acc + e.amountDA, 0);
+  const marketExpenses = validExpenses.filter(e => currentMarket && e.marketId === currentMarket.id).reduce((acc, e) => acc + e.amountDA, 0);
   const netMarginDA = marketIncome - marketExpenses;
   const marginPct = marketIncome > 0 ? (netMarginDA / marketIncome) * 100 : 0;
 
-  const filteredCheques = cheques.filter(c => filterType === 'Tous' || c.type === filterType);
+  const filteredCheques = validCheques.filter(c => filterType === 'Tous' || c.type === filterType);
 
   const handleCreateCheque = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chequeNumber.trim() || !chequeParty.trim()) return;
+    if (!chequeNumber.trim() || !chequeParty.trim() || !currentMarket) return;
 
     const newC: ChequePayment = {
       id: `chq-${Date.now()}`,
@@ -86,7 +91,7 @@ export const FinanceView: React.FC = () => {
 
   const handleCreateExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expenseDesc.trim()) return;
+    if (!expenseDesc.trim() || !currentMarket) return;
 
     const newExp: Expense = {
       id: `exp-${Date.now()}`,
@@ -428,7 +433,7 @@ export const FinanceView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {expenses.map(e => (
+                {validExpenses.map(e => (
                   <tr key={e.id} className="hover:bg-slate-50">
                     <td className="p-3 font-mono text-slate-500">{e.date}</td>
                     <td className="p-3 font-semibold text-slate-800">{e.category}</td>
@@ -448,7 +453,7 @@ export const FinanceView: React.FC = () => {
         <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
           <div className="border-b border-slate-100 pb-3">
             <h3 className="font-bold text-base text-slate-900">
-              Analyse de Rentabilité — Marché N° {currentMarket.number}
+              Analyse de Rentabilité — Marché N° {currentMarket?.number || '—'}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Différentiel entre encaissements réels (Situations payées) et coûts réels du chantier

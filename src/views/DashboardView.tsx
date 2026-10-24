@@ -98,11 +98,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
   // Calculs financiers globaux : UNIQUEMENT sur les marchés actifs non-archivés (les projets archivés sont réceptionnés et sortent du tableau de bord)
   const activeMarkets = markets.filter(m => m.status !== 'Archivé');
+  const activeMarketIds = new Set(activeMarkets.map(m => m.id));
   const currentMarket = activeMarkets.find(m => m.id === selectedMarketId) || activeMarkets[0];
   const totalMarketsAmount = activeMarkets.reduce((acc, m) => acc + m.currentAmountHT, 0);
-  const totalBilledHT = situations.reduce((acc, s) => acc + s.grossAmountCurrentHT, 0);
-  const totalNetPaidTTC = situations.reduce((acc, s) => acc + s.netToPayTTC, 0);
-  const totalRetenueGarantie = situations.reduce((acc, s) => acc + s.retenueGarantieHT, 0);
+  const activeSituations = situations.filter(s => activeMarketIds.has(s.marketId));
+  const totalBilledHT = activeSituations.reduce((acc, s) => acc + s.grossAmountCurrentHT, 0);
+  const totalNetPaidTTC = activeSituations.reduce((acc, s) => acc + s.netToPayTTC, 0);
+  const totalRetenueGarantie = activeSituations.reduce((acc, s) => acc + s.retenueGarantieHT, 0);
   const resteARealiser = Math.max(0, totalMarketsAmount - totalBilledHT);
 
   // Marché courant stats

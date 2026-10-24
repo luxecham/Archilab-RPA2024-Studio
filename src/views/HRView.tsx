@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   UserCheck, 
@@ -39,7 +39,14 @@ const TRADES: WorkerTrade[] = [
 ];
 
 export const HRView: React.FC = () => {
-  const { workers, addWorker, updateWorker, deleteWorker, updateWorkerDays, chantiers } = useBTP();
+  const { workers, addWorker, updateWorker, deleteWorker, updateWorkerDays, chantiers, markets } = useBTP();
+
+  // Filtrage strict : seuls les chantiers dont le marché existe encore sont conservés
+  const validChantiers = useMemo(() => chantiers.filter(c => markets.some(m => m.id === c.marketId)), [chantiers, markets]);
+  const validChantierIds = useMemo(() => new Set(validChantiers.map(c => c.id)), [validChantiers]);
+
+  // Seuls les ouvriers rattachés à un chantier valide d'un marché existant
+  const validWorkers = useMemo(() => workers.filter(w => validChantierIds.has(w.chantierId)), [workers, validChantierIds]);
 
   // Search & filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,7 +57,7 @@ export const HRView: React.FC = () => {
   const [isAddingWorker, setIsAddingWorker] = useState(false);
   const [newName, setNewName] = useState('');
   const [newTrade, setNewTrade] = useState<WorkerTrade>('Maçon');
-  const [newChantierId, setNewChantierId] = useState(chantiers[0]?.id || 'ch-sba-01');
+  const [newChantierId, setNewChantierId] = useState(validChantiers[0]?.id || '');
   const [newRate, setNewRate] = useState<number>(2700);
   const [newCnas, setNewCnas] = useState('');
   const [newPhone, setNewPhone] = useState('');
@@ -66,7 +73,7 @@ export const HRView: React.FC = () => {
   const CACOBATPH_RATE = 0.1221; // 12.21% Congés Payés & Chômage-Intempéries BTP
 
   // Filtrage des ouvriers
-  const filteredWorkers = workers.filter(w => {
+  const filteredWorkers = validWorkers.filter(w => {
     const matchesSearch = 
       w.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       w.phone.includes(searchTerm) ||
@@ -79,7 +86,7 @@ export const HRView: React.FC = () => {
     return matchesSearch && matchesChantier && matchesTrade;
   });
 
-  const totalSalairesBruts = workers.reduce((acc, w) => acc + (w.dailyRateDA * w.daysWorkedCurrentMonth), 0);
+  const totalSalairesBruts = validWorkers.reduce((acc, w) => acc + (w.dailyRateDA * w.daysWorkedCurrentMonth), 0);
   const totalCotisationsCNAS = totalSalairesBruts * CNAS_PATRONAL;
   const totalCacobatph = totalSalairesBruts * CACOBATPH_RATE;
   const totalNetAPayer = totalSalairesBruts * (1 - CNAS_SALARIAL);
@@ -87,7 +94,7 @@ export const HRView: React.FC = () => {
   const openAddModal = () => {
     setNewName('');
     setNewTrade('Maçon');
-    setNewChantierId(chantiers[0]?.id || 'ch-sba-01');
+    setNewChantierId(validChantiers[0]?.id || '');
     setNewRate(2700);
     setNewCnas('19882200' + Math.floor(1000 + Math.random() * 9000));
     setNewPhone('0550 ' + Math.floor(10 + Math.random() * 89) + ' ' + Math.floor(10 + Math.random() * 89) + ' ' + Math.floor(10 + Math.random() * 89));
@@ -131,7 +138,7 @@ export const HRView: React.FC = () => {
   };
 
   const getChantierName = (chantierId: string) => {
-    const ch = chantiers.find(c => c.id === chantierId);
+    const ch = validChantiers.find(c => c.id === chantierId);
     return ch ? `${ch.name} (W.${ch.wilaya})` : chantierId;
   };
 
@@ -243,8 +250,8 @@ export const HRView: React.FC = () => {
               onChange={(e) => setFilterChantier(e.target.value)}
               className="py-1.5 px-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 font-medium focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">Tous les chantiers ({chantiers.length})</option>
-              {chantiers.map(c => (
+              <option value="all">Tous les chantiers ({validChantiers.length})</option>
+              {validChantiers.map(c => (
                 <option key={c.id} value={c.id}>{c.name} (W.{c.wilaya})</option>
               ))}
             </select>
@@ -323,7 +330,7 @@ export const HRView: React.FC = () => {
                     onChange={(e) => setNewChantierId(e.target.value)}
                     className="w-full p-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   >
-                    {chantiers.map(ch => (
+                    {validChantiers.map(ch => (
                       <option key={ch.id} value={ch.id}>{ch.name} (W.{ch.wilaya})</option>
                     ))}
                   </select>
@@ -467,7 +474,7 @@ export const HRView: React.FC = () => {
                     onChange={(e) => setEditingWorker({ ...editingWorker, chantierId: e.target.value })}
                     className="w-full p-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   >
-                    {chantiers.map(ch => (
+                    {validChantiers.map(ch => (
                       <option key={ch.id} value={ch.id}>{ch.name} (W.{ch.wilaya})</option>
                     ))}
                   </select>

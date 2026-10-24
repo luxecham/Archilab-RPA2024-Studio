@@ -80,16 +80,18 @@ export const ChantiersView: React.FC<ChantiersViewProps> = ({ onNavigate }) => {
   const [newWorkerDays, setNewWorkerDays] = useState<number>(24);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
 
-  const selectedChantier = chantiers.find(c => c.id === selectedChantierId) || chantiers[0];
-  const market = markets.find(m => m.id === selectedChantier.marketId);
-  const wilaya = ALGERIAN_WILAYAS.find(w => w.code === selectedChantier.wilaya);
+  // Filtrage strict : seuls les chantiers dont le marché existe encore dans markets sont affichés
+  const validChantiers = chantiers.filter(c => markets.some(m => m.id === c.marketId));
+  const selectedChantier = validChantiers.find(c => c.id === selectedChantierId) || validChantiers[0];
+  const market = markets.find(m => m.id === selectedChantier?.marketId);
+  const wilaya = selectedChantier ? ALGERIAN_WILAYAS.find(w => w.code === selectedChantier.wilaya) : null;
 
   // Articles liés à ce chantier
-  const chantierArticles = articles.filter(a => a.marketId === selectedChantier.marketId);
-  const chantierWorkers = workers.filter(w => w.chantierId === selectedChantier.id);
-  const chantierExpenses = expenses.filter(e => e.chantierId === selectedChantier.id);
-  const chantierAttachements = attachements.filter(a => a.chantierId === selectedChantier.id);
-  const chantierSituations = situations.filter(s => s.chantierId === selectedChantier.id);
+  const chantierArticles = articles.filter(a => a.marketId === selectedChantier?.marketId);
+  const chantierWorkers = workers.filter(w => w.chantierId === selectedChantier?.id);
+  const chantierExpenses = expenses.filter(e => e.chantierId === selectedChantier?.id);
+  const chantierAttachements = attachements.filter(a => a.chantierId === selectedChantier?.id);
+  const chantierSituations = situations.filter(s => s.chantierId === selectedChantier?.id);
 
   const totalDepensesChantier = chantierExpenses.reduce((acc, e) => acc + e.amountDA, 0);
 
@@ -137,6 +139,20 @@ export const ChantiersView: React.FC<ChantiersViewProps> = ({ onNavigate }) => {
     }
   };
 
+  if (!selectedChantier) {
+    return (
+      <div className="bg-white p-12 rounded-2xl border border-slate-200/80 shadow-xs text-center space-y-4">
+        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+          <HardHat className="w-8 h-8" />
+        </div>
+        <h2 className="text-base font-bold text-slate-800">Aucun chantier actif</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          Aucun chantier n'est actuellement rattaché aux projets actifs. Créez un nouveau projet ou importez un devis pour démarrer le suivi terrain.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -160,7 +176,7 @@ export const ChantiersView: React.FC<ChantiersViewProps> = ({ onNavigate }) => {
 
         {/* Chantier Cards Selector */}
         <div className="flex items-center gap-2">
-          {chantiers.map(ch => (
+          {validChantiers.map(ch => (
             <button
               key={ch.id}
               onClick={() => {
@@ -168,7 +184,7 @@ export const ChantiersView: React.FC<ChantiersViewProps> = ({ onNavigate }) => {
                 setSelectedMarketId(ch.marketId);
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                ch.id === selectedChantier.id 
+                selectedChantier && ch.id === selectedChantier.id 
                   ? 'bg-slate-900 text-white shadow-sm' 
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}

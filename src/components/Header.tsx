@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     resetData
   } = useBTP();
 
-  const currentMarket = markets.find(m => m.id === selectedMarketId);
+  const currentMarket = markets.find(m => m.id === selectedMarketId) || markets[0];
   const currentWilaya = currentMarket ? ALGERIAN_WILAYAS.find(w => w.code === currentMarket.wilaya) : null;
 
   return (
@@ -38,15 +38,19 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           <div className="flex flex-col">
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-600">Marché Actif</span>
             <select
-              value={selectedMarketId}
+              value={currentMarket ? currentMarket.id : ''}
               onChange={(e) => setSelectedMarketId(e.target.value)}
               className="font-bold text-xs sm:text-sm text-slate-800 bg-transparent border-none p-0 pr-6 focus:ring-0 cursor-pointer truncate max-w-[200px] sm:max-w-md"
             >
-              {markets.map(m => (
-                <option key={m.id} value={m.id}>
-                  N° {m.number} — {m.title}
-                </option>
-              ))}
+              {markets.length === 0 ? (
+                <option value="">Aucun projet actif</option>
+              ) : (
+                markets.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.status === 'Archivé' ? '📦 [Archivé] ' : ''}N° {m.number} — {m.title}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
