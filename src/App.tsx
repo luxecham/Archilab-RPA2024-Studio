@@ -47,7 +47,7 @@ const MainLayout: React.FC = () => {
           {activeTab === 'logistics' && <LogisticsView />}
           {activeTab === 'finance' && <FinanceView />}
           {activeTab === 'hr' && <HRView />}
-          {activeTab === 'ai-metre' && <IAMetreurView />}
+          {activeTab === 'ai-metre' && <IAMetreurView onNavigate={setActiveTab} />}
         </main>
 
         {/* Floating Tester Feedback Widget */}
