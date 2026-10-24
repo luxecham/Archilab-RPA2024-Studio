@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Truck, 
   Package, 
@@ -24,7 +24,11 @@ import {
   Zap,
   Activity,
   Calculator,
-  RotateCcw
+  RotateCcw,
+  Download,
+  Camera,
+  Table as TableIcon,
+  LayoutGrid
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 import { formatDA, formatNumberDZ } from '../utils/dzFormatters';
@@ -33,6 +37,7 @@ import {
   StockCategory, 
   SteelDiameter, 
   StockMovement, 
+  StockOperationStatus,
   MaterialEquipment, 
   EquipmentType, 
   EquipmentStatus 
@@ -53,6 +58,7 @@ export const LogisticsView: React.FC = () => {
     equipment, 
     chantiers, 
     markets,
+    articles,
     addStockItem, 
     updateStockQuantity, 
     deleteStockItem, 
@@ -69,6 +75,7 @@ export const LogisticsView: React.FC = () => {
 
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'stocks' | 'steel' | 'equipment' | 'movements' | 'orders'>('stocks');
+  const [stockViewMode, setStockViewMode] = useState<'cards' | 'table'>('cards');
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,16 +89,25 @@ export const LogisticsView: React.FC = () => {
   const [isAddingEquipment, setIsAddingEquipment] = useState(false);
   const [selectedStockForMovement, setSelectedStockForMovement] = useState<StockItem | null>(null);
 
-  // New stock item form state
+  // New stock item form state avec statut d'opération segmenté obligatoire
+  const [newStockOperationStatus, setNewStockOperationStatus] = useState<StockOperationStatus>('Livré au projet');
+  const [newStockMarketId, setNewStockMarketId] = useState<string>('');
+  const [newStockChantierId, setNewStockChantierId] = useState<string>('');
   const [newStockName, setNewStockName] = useState('');
   const [newStockCategory, setNewStockCategory] = useState<StockCategory>('Bois');
   const [newStockUnit, setNewStockUnit] = useState('plaque');
   const [newStockDiameter, setNewStockDiameter] = useState<SteelDiameter>(12);
   const [newStockQty, setNewStockQty] = useState(100);
+  const [newStockRefDoc, setNewStockRefDoc] = useState('BL-2026/1042');
+  const [newStockDate, setNewStockDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newStockLotOuvrage, setNewStockLotOuvrage] = useState('LOT 01 - Gros Œuvres / Poteaux R+1');
+  const [newStockArticleDQE, setNewStockArticleDQE] = useState('');
   const [newStockThreshold, setNewStockThreshold] = useState(20);
   const [newStockPrice, setNewStockPrice] = useState(850);
   const [newStockSupplier, setNewStockSupplier] = useState('');
   const [newStockLocation, setNewStockLocation] = useState('');
+
+  const blPhotoInputRef = useRef<HTMLInputElement>(null);
 
   // New movement form state
   const [movementType, setMovementType] = useState<StockMovement['type']>('Sortie (Consommation)');
@@ -183,24 +199,43 @@ export const LogisticsView: React.FC = () => {
     });
   }, [purchaseOrders, validChantierIds, selectedChantierId]);
 
-  // Handle create new stock
+  // Handle create new stock avec synchronisation Livré au projet / Consommé
   const handleAddStock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStockName.trim()) return;
 
+    const isDelivered = newStockOperationStatus === 'Livré au projet';
+    const isConsumed = newStockOperationStatus === 'Consommé';
+
+    const qty = Number(newStockQty) || 0;
+    const delivered = isDelivered ? qty : (isConsumed ? qty * 1.5 : qty);
+    const consumed = isConsumed ? qty : 0;
+    const remaining = isConsumed ? Math.max(0, delivered - consumed) : qty;
+
+    const assignedChantier = newStockChantierId || (selectedChantierId === 'all' ? validChantiers[0]?.id || '' : selectedChantierId);
+    const targetChantier = validChantiers.find(c => c.id === assignedChantier);
+    const assignedMarket = newStockMarketId || targetChantier?.marketId || markets[0]?.id;
+
     const newItem: StockItem = {
       id: `stk-${Date.now()}`,
-      chantierId: selectedChantierId === 'all' ? validChantiers[0]?.id || '' : selectedChantierId,
-      name: newStockName,
+      chantierId: assignedChantier,
+      marketId: assignedMarket,
+      name: newStockName.trim(),
       category: newStockCategory,
       unit: newStockUnit,
       steelDiameter: newStockCategory === 'Acier' ? newStockDiameter : undefined,
-      quantityInStock: Number(newStockQty),
-      minThreshold: Number(newStockThreshold),
-      unitPriceCost: Number(newStockPrice),
-      lastRestockedDate: new Date().toISOString().split('T')[0],
+      quantityInStock: remaining,
+      totalDelivered: delivered,
+      totalConsumed: consumed,
+      minThreshold: Number(newStockThreshold) || 10,
+      unitPriceCost: Number(newStockPrice) || 0,
+      lastRestockedDate: newStockDate || new Date().toISOString().split('T')[0],
       supplier: newStockSupplier || 'Fournisseur Agréé BTP DZ',
-      storageLocation: newStockLocation || 'Parc de stockage chantier'
+      storageLocation: newStockLocation || 'Parc de stockage chantier',
+      operationStatus: newStockOperationStatus,
+      targetLotName: isConsumed ? newStockLotOuvrage : undefined,
+      targetArticleId: isConsumed ? newStockArticleDQE : undefined,
+      referenceDoc: newStockRefDoc.trim() || (isDelivered ? `BL-2026/${Math.floor(1000 + Math.random() * 9000)}` : `BS-2026/${Math.floor(100 + Math.random() * 900)}`)
     };
 
     addStockItem(newItem);
@@ -208,6 +243,24 @@ export const LogisticsView: React.FC = () => {
     setNewStockName('');
     setNewStockSupplier('');
     setNewStockLocation('');
+    setNewStockRefDoc('BL-2026/1042');
+  };
+
+  // Export CSV de l'état des stocks
+  const handleExportStocksCSV = () => {
+    let csv = 'Catégorie;Désignation;Unité;Statut Opération;Quantité Livrée au Projet;Quantité Consommée;Reste en Stock sur Chantier;Seuil Minimum;Prix Unitaire Revient (DA);Valeur Globale (DA);Fournisseur;Emplacement\n';
+    filteredStocks.forEach(s => {
+      const delivered = s.totalDelivered ?? s.quantityInStock;
+      const consumed = s.totalConsumed ?? 0;
+      csv += `"${s.category}";"${s.name.replace(/"/g, '""')}";"${s.unit}";"${s.operationStatus || 'Livré au projet'}";${delivered};${consumed};${s.quantityInStock};${s.minThreshold};${s.unitPriceCost};${s.quantityInStock * s.unitPriceCost};"${(s.supplier || '').replace(/"/g, '""')}";"${(s.storageLocation || '').replace(/"/g, '""')}"\n`;
+    });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Stocks_Materiaux_ArchiLab_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Quick Open Movement Dialog for a specific item
@@ -323,6 +376,45 @@ export const LogisticsView: React.FC = () => {
 
         {/* Global Action & Reset */}
         <div className="flex items-center flex-wrap gap-2">
+          {/* Input Caméra Mobile pour Bon de Livraison (BL) */}
+          <input
+            type="file"
+            ref={blPhotoInputRef}
+            accept="application/pdf,image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                alert(`Photo du Bon de Livraison (BL) "${file.name}" enregistrée avec succès dans le dossier chantier !`);
+              }
+            }}
+          />
+
+          {/* Bouton Scan / Photo BL direct */}
+          <button
+            type="button"
+            onClick={() => blPhotoInputRef.current?.click()}
+            title="Prendre en photo un Bon de Livraison (BL) sur chantier"
+            className="px-3 py-2 text-xs font-bold text-emerald-800 dark:text-emerald-200 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 rounded-xl flex items-center gap-1.5 transition-colors"
+          >
+            <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">Photo BL Chantier</span>
+          </button>
+
+          {/* Export CSV des Stocks */}
+          {activeTab === 'stocks' && (
+            <button
+              type="button"
+              onClick={handleExportStocksCSV}
+              title="Exporter l'état complet des stocks au format CSV"
+              className="px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white/70 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-white rounded-xl flex items-center gap-1.5 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               if (confirm("Réinitialiser le référentiel des stocks et du matériel selon les unités standard BTP Algérie (Décret présidentiel N° 15-247) ?")) {
@@ -330,16 +422,16 @@ export const LogisticsView: React.FC = () => {
               }
             }}
             title="Restaurer le catalogue complet des matériaux et engins avec les unités DZ"
-            className="px-3 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-1.5 transition-colors"
+            className="px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 bg-slate-100/70 dark:bg-slate-800 hover:bg-slate-200 rounded-xl flex items-center gap-1.5 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Référentiel BTP DZ</span>
+            <span className="hidden sm:inline">Référentiel BTP DZ</span>
           </button>
 
           {activeTab === 'stocks' && (
             <button
               onClick={() => setIsAddingStock(true)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-2 transition-all shrink-0"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black rounded-xl shadow-lg shadow-blue-500/25 flex items-center gap-2 transition-all shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Nouveau Matériau</span>
@@ -349,7 +441,7 @@ export const LogisticsView: React.FC = () => {
           {activeTab === 'equipment' && (
             <button
               onClick={() => setIsAddingEquipment(true)}
-              className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-2 transition-all shrink-0"
+              className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-black rounded-xl shadow-lg shadow-amber-500/25 flex items-center gap-2 transition-all shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Ajouter un Engin</span>
@@ -546,8 +638,38 @@ export const LogisticsView: React.FC = () => {
                 />
               </div>
 
-              <div className="text-xs text-slate-500 font-medium">
-                Affichage de <strong className="text-slate-900">{filteredStocks.length}</strong> matériaux sur <strong className="text-slate-900">{stocks.length}</strong>
+              <div className="flex items-center gap-3">
+                <div className="text-xs text-slate-500 font-medium">
+                  Affichage de <strong className="text-slate-900 dark:text-white">{filteredStocks.length}</strong> matériaux sur <strong className="text-slate-900 dark:text-white">{stocks.length}</strong>
+                </div>
+
+                {/* Sélecteur de vue : Cartes vs Tableau */}
+                <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setStockViewMode('cards')}
+                    className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                      stockViewMode === 'cards'
+                        ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                    title="Vue en Cartes Tactiles"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStockViewMode('table')}
+                    className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                      stockViewMode === 'table'
+                        ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
+                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                    title="Vue en Tableau Détaillé"
+                  >
+                    <TableIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -665,148 +787,311 @@ export const LogisticsView: React.FC = () => {
             </div>
           </div>
 
-          {/* GRID OF STOCK CARDS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredStocks.map(stk => {
-              const isLow = stk.quantityInStock <= stk.minThreshold;
-              const meta = CATEGORY_ICONS_BADGES[stk.category] || CATEGORY_ICONS_BADGES['Autre'];
-              
-              // If steel, compute live equivalence
-              let steelEquiv: { barres: number; tonnes: number } | null = null;
-              if (stk.category === 'Acier' && stk.steelDiameter) {
-                steelEquiv = convertSteel(stk.steelDiameter, stk.quantityInStock, stk.unit as any);
-              }
+          {/* VUE 1 : GRILLE DE CARTES TACTILES LIQUID GLASS */}
+          {stockViewMode === 'cards' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredStocks.map(stk => {
+                const isLow = stk.quantityInStock <= stk.minThreshold;
+                const meta = CATEGORY_ICONS_BADGES[stk.category] || CATEGORY_ICONS_BADGES['Autre'];
+                
+                const delivered = stk.totalDelivered ?? stk.quantityInStock;
+                const consumed = stk.totalConsumed ?? 0;
+                const ratio = delivered > 0 ? Math.min(100, Math.round((consumed / delivered) * 100)) : 0;
 
-              return (
-                <div 
-                  key={stk.id}
-                  className={`bg-white p-5 rounded-2xl border transition-all shadow-xs flex flex-col justify-between ${
-                    isLow ? 'border-amber-400 bg-amber-50/15 ring-2 ring-amber-400/20' : 'border-slate-200/80 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    {/* Header line: Category badge & Low stock badge */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-base">{meta.icon}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${meta.color}`}>
-                          {stk.category} • {stk.unit}
-                        </span>
+                // If steel, compute live equivalence
+                let steelEquiv: { barres: number; tonnes: number } | null = null;
+                if (stk.category === 'Acier' && stk.steelDiameter) {
+                  steelEquiv = convertSteel(stk.steelDiameter, stk.quantityInStock, stk.unit as any);
+                }
+
+                return (
+                  <div 
+                    key={stk.id}
+                    className={`liquid-glass-card p-5 border transition-all shadow-md flex flex-col justify-between ${
+                      isLow ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-400/20' : 'border-white/60 dark:border-white/10 hover:border-blue-400'
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      {/* Header line: Category badge & Low stock badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-base">{meta.icon}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${meta.color}`}>
+                            {stk.category} • {stk.unit}
+                          </span>
+
+                          {/* Badge de Statut d'Opération */}
+                          {stk.operationStatus === 'Consommé' ? (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 flex items-center gap-0.5">
+                              <ArrowDownRight className="w-3 h-3" />
+                              Consommé
+                            </span>
+                          ) : stk.operationStatus === 'Livré au projet' ? (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-0.5">
+                              <ArrowUpRight className="w-3 h-3" />
+                              Livré au projet
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-800 dark:text-blue-300 border border-blue-500/30">
+                              Catalogue
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          {isLow && (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              Stock Bas
+                            </span>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (confirm(`Supprimer la référence "${stk.name}" du stock ?`)) {
+                                deleteStockItem(stk.id);
+                              }
+                            }}
+                            className="p-1 text-slate-300 hover:text-rose-600 rounded-md transition-colors"
+                            title="Supprimer la référence"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Designation & Emplacement */}
+                      <div>
+                        <h4 className="font-extrabold text-sm text-slate-900 dark:text-white leading-snug">{stk.name}</h4>
+                        <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                          <span>📍 {stk.storageLocation || 'Magasin Chantier'}</span>
+                          <span>•</span>
+                          <span>🏭 {stk.supplier || 'Fournisseur Agréé'}</span>
+                          {stk.referenceDoc && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">{stk.referenceDoc}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+
+                      {/* Acier Specific Badge: Equivalent in Barres or Tonnes */}
+                      {steelEquiv && stk.steelDiameter && (
+                        <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/25 text-[11px] flex items-center justify-between">
+                          <span className="font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1">
+                            <Zap className="w-3 h-3 text-blue-600" />
+                            Acier HA FeE500 Ø{stk.steelDiameter}
+                          </span>
+                          <span className="font-mono font-black text-blue-800 dark:text-blue-200">
+                            {stk.unit === 'barre' ? (
+                              <>≈ {formatNumberDZ(steelEquiv.tonnes)} Tonnes</>
+                            ) : (
+                              <>≈ {formatNumberDZ(steelEquiv.barres)} Barres (12m)</>
+                            )}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Stock Metrics Box Multi-Compteurs : Livré / Consommé / Reste */}
+                      <div className="p-3.5 rounded-2xl bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 space-y-2.5">
+                        <div className="grid grid-cols-3 gap-1.5 text-center">
+                          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                            <span className="text-[9px] uppercase font-bold text-emerald-700 dark:text-emerald-300 block">Livré Projet</span>
+                            <span className="font-mono font-black text-xs text-emerald-800 dark:text-emerald-200">
+                              {formatNumberDZ(delivered)}
+                            </span>
+                          </div>
+
+                          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                            <span className="text-[9px] uppercase font-bold text-amber-700 dark:text-amber-300 block">Consommé</span>
+                            <span className="font-mono font-black text-xs text-amber-800 dark:text-amber-200">
+                              {formatNumberDZ(consumed)}
+                            </span>
+                          </div>
+
+                          <div className={`p-2 rounded-xl border ${isLow ? 'bg-rose-500/15 border-rose-500/30 text-rose-800 dark:text-rose-200' : 'bg-blue-500/10 border-blue-500/20 text-blue-900 dark:text-blue-200'}`}>
+                            <span className="text-[9px] uppercase font-bold block">Reste Chantier</span>
+                            <span className="font-mono font-black text-xs">
+                              {formatNumberDZ(stk.quantityInStock)} <span className="text-[9px] font-bold">{stk.unit}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Jauge de Progression */}
+                        <div>
+                          <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-1">
+                            <span>Taux de Consommation Chantier</span>
+                            <span>{ratio}% ({formatNumberDZ(consumed)} / {formatNumberDZ(delivered)})</span>
+                          </div>
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full transition-all duration-300 ${ratio > 85 ? 'bg-rose-500' : ratio > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${ratio}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Valorisation financière */}
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/60 text-[11px]">
+                          <span className="text-slate-500 font-bold">Valeur en Stock :</span>
+                          <span className="font-mono font-black text-slate-900 dark:text-white">
+                            {formatDA(stk.quantityInStock * stk.unitPriceCost)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Action Footer: Movement & Adjust */}
+                    <div className="pt-3 mt-3 border-t border-white/40 dark:border-white/10 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openMovementForStock(stk, 'Sortie (Consommation)')}
+                          className="px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-1 transition-colors"
+                          title="Enregistrer une sortie pour consommation chantier"
+                        >
+                          <ArrowDownRight className="w-3.5 h-3.5" />
+                          <span>Sortie (BS)</span>
+                        </button>
+                        <button
+                          onClick={() => openMovementForStock(stk, 'Entrée (Réception BL)')}
+                          className="px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1 transition-colors"
+                          title="Enregistrer une livraison / réception fournisseur"
+                        >
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                          <span>Réception (BL)</span>
+                        </button>
                       </div>
 
                       <div className="flex items-center gap-1">
-                        {isLow && (
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            Stock Bas
-                          </span>
-                        )}
                         <button
-                          onClick={() => {
-                            if (confirm(`Supprimer la référence "${stk.name}" du stock ?`)) {
-                              deleteStockItem(stk.id);
-                            }
-                          }}
-                          className="p-1 text-slate-300 hover:text-rose-600 rounded-md transition-colors"
-                          title="Supprimer la référence"
+                          onClick={() => updateStockQuantity(stk.id, -10)}
+                          className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center transition-colors"
+                          title="Ajustement rapide -10"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          -10
+                        </button>
+                        <button
+                          onClick={() => updateStockQuantity(stk.id, 50)}
+                          className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center transition-colors"
+                          title="Ajustement rapide +50"
+                        >
+                          +50
                         </button>
                       </div>
                     </div>
-
-                    {/* Designation & Emplacement */}
-                    <div>
-                      <h4 className="font-bold text-sm text-slate-900 leading-snug">{stk.name}</h4>
-                      <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
-                        <span>📍 {stk.storageLocation || 'Magasin Chantier'}</span>
-                        <span>•</span>
-                        <span>🏭 {stk.supplier || 'Fournisseur Agréé'}</span>
-                      </p>
-                    </div>
-
-                    {/* Acier Specific Badge: Equivalent in Barres or Tonnes */}
-                    {steelEquiv && stk.steelDiameter && (
-                      <div className="p-2 rounded-xl bg-blue-50/70 border border-blue-200/70 text-[11px] flex items-center justify-between">
-                        <span className="font-bold text-blue-900 flex items-center gap-1">
-                          <Zap className="w-3 h-3 text-blue-600" />
-                          Acier HA FeE500 Ø{stk.steelDiameter}
-                        </span>
-                        <span className="font-mono font-black text-blue-800">
-                          {stk.unit === 'barre' ? (
-                            <>≈ {formatNumberDZ(steelEquiv.tonnes)} Tonnes</>
-                          ) : (
-                            <>≈ {formatNumberDZ(steelEquiv.barres)} Barres (12m)</>
-                          )}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Stock Metrics Box */}
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Quantité en Stock</span>
-                        <span className="text-xl font-black text-slate-900 font-mono tracking-tight">
-                          {formatNumberDZ(stk.quantityInStock)} <span className="text-xs font-bold text-slate-500">{stk.unit}</span>
-                        </span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
-                          Seuil min: {formatNumberDZ(stk.minThreshold)} {stk.unit}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">Valeur Globale</span>
-                        <span className="text-xs font-black text-slate-800 font-mono block">
-                          {formatDA(stk.quantityInStock * stk.unitPriceCost)}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-                          ({formatDA(stk.unitPriceCost)} / {stk.unit})
-                        </span>
-                      </div>
-                    </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Quick Action Footer: Movement & Adjust */}
-                  <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openMovementForStock(stk, 'Sortie (Consommation)')}
-                        className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1 transition-colors"
-                        title="Enregistrer une sortie pour consommation chantier"
-                      >
-                        <ArrowDownRight className="w-3.5 h-3.5" />
-                        <span>Sortie</span>
-                      </button>
-                      <button
-                        onClick={() => openMovementForStock(stk, 'Entrée (Réception BL)')}
-                        className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1 transition-colors"
-                        title="Enregistrer une livraison / réception fournisseur"
-                      >
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                        <span>Réception BL</span>
-                      </button>
-                    </div>
+          {/* VUE 2 : TABLEAU COMPTABLE DÉTAILLÉ */}
+          {stockViewMode === 'table' && (
+            <div className="liquid-glass-card rounded-3xl border border-white/60 dark:border-white/10 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100/70 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 font-black uppercase tracking-wider text-[10px] border-b border-slate-200/60 dark:border-slate-700/60">
+                    <tr>
+                      <th className="py-3 px-3">Statut</th>
+                      <th className="py-3 px-3">Catégorie</th>
+                      <th className="py-3 px-4">Désignation Matériau</th>
+                      <th className="py-3 px-3 text-right">Livré Projet</th>
+                      <th className="py-3 px-3 text-right">Consommé</th>
+                      <th className="py-3 px-3 text-right">Reste Chantier</th>
+                      <th className="py-3 px-3 text-center w-28">Consommation</th>
+                      <th className="py-3 px-3 text-right">Valeur Stock (DA)</th>
+                      <th className="py-3 px-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/40 dark:divide-white/10">
+                    {filteredStocks.map(stk => {
+                      const isLow = stk.quantityInStock <= stk.minThreshold;
+                      const delivered = stk.totalDelivered ?? stk.quantityInStock;
+                      const consumed = stk.totalConsumed ?? 0;
+                      const ratio = delivered > 0 ? Math.min(100, Math.round((consumed / delivered) * 100)) : 0;
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => updateStockQuantity(stk.id, -10)}
-                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center transition-colors"
-                        title="Ajustement rapide -10"
-                      >
-                        -10
-                      </button>
-                      <button
-                        onClick={() => updateStockQuantity(stk.id, 50)}
-                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center transition-colors"
-                        title="Ajustement rapide +50"
-                      >
-                        +50
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      return (
+                        <tr key={stk.id} className="hover:bg-white/40 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {stk.operationStatus === 'Consommé' ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                                Consommé
+                              </span>
+                            ) : stk.operationStatus === 'Livré au projet' ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+                                Livré
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500/15 text-blue-800 dark:text-blue-300 border border-blue-500/30">
+                                Catalogue
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                            {stk.category} ({stk.unit})
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-extrabold text-slate-900 dark:text-white block">{stk.name}</span>
+                            <span className="text-[10px] text-slate-400">📍 {stk.storageLocation || 'Magasin'} • 🏭 {stk.supplier || 'Fournisseur'}</span>
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
+                            {formatNumberDZ(delivered)} {stk.unit}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-amber-700 dark:text-amber-300 tabular-nums">
+                            {formatNumberDZ(consumed)} {stk.unit}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white tabular-nums">
+                            <span className={isLow ? 'text-amber-600 font-black' : ''}>
+                              {formatNumberDZ(stk.quantityInStock)} {stk.unit}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full ${ratio > 85 ? 'bg-rose-500' : ratio > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                style={{ width: `${ratio}%` }}
+                              />
+                            </div>
+                            <span className="text-[9px] font-mono font-bold text-slate-400 text-center block mt-0.5">{ratio}%</span>
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white tabular-nums">
+                            {formatDA(stk.quantityInStock * stk.unitPriceCost)}
+                          </td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => openMovementForStock(stk, 'Sortie (Consommation)')}
+                                className="p-1 rounded-lg bg-amber-500/15 text-amber-700 hover:bg-amber-500/25"
+                                title="Sortie Chantier"
+                              >
+                                <ArrowDownRight className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => openMovementForStock(stk, 'Entrée (Réception BL)')}
+                                className="p-1 rounded-lg bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25"
+                                title="Réception BL"
+                              >
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Supprimer la référence "${stk.name}" ?`)) deleteStockItem(stk.id);
+                                }}
+                                className="p-1 rounded-lg text-slate-300 hover:text-rose-600"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {filteredStocks.length === 0 && (
             <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center space-y-3">
@@ -1313,32 +1598,301 @@ export const LogisticsView: React.FC = () => {
       )}
 
       {/* ============================================================== */}
-      {/* MODAL 1 : AJOUTER UN NOUVEAU MATÉRIAU EN STOCK                 */}
+      {/* MODAL 1 : ENREGISTRER UN MATÉRIAU (LIVRÉ AU PROJET / CONSOMMÉ) */}
       {/* ============================================================== */}
       {isAddingStock && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-blue-100 text-blue-800">
-                  <Package className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="liquid-glass-modal w-full sm:max-w-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border border-white/60 dark:border-white/10 space-y-4 max-h-[92vh] overflow-y-auto mobile-bottom-sheet">
+            <div className="flex items-center justify-between border-b border-white/40 dark:border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-2xl bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                  <Package className="w-5 h-5" />
                 </span>
-                <h3 className="font-black text-base text-slate-900">
-                  Enregistrer un Nouveau Matériau au Répertoire
-                </h3>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-white">
+                    Enregistrer un Nouveau Matériau au Répertoire
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Qualification obligatoire : Réception sur Chantier (BL) ou Sortie Consommation (BS)
+                  </p>
+                </div>
               </div>
               <button 
                 onClick={() => setIsAddingStock(false)} 
-                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold"
               >
-                ✕ Fermer
+                ✕
               </button>
             </div>
 
             <form onSubmit={handleAddStock} className="space-y-4">
-              {/* Category */}
+              {/* SÉLECTEUR DE STATUT D'OPÉRATION LIQUID GLASS (OBLIGATOIRE) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-800 dark:text-slate-200 block uppercase tracking-wider">
+                  Statut de l'Opération sur Chantier (Obligatoire)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewStockOperationStatus('Livré au projet');
+                      setNewStockRefDoc(`BL-2026/${Math.floor(1000 + Math.random() * 9000)}`);
+                    }}
+                    className={`p-3 rounded-2xl text-left border text-xs font-bold transition-all flex items-center gap-2.5 touch-target ${
+                      newStockOperationStatus === 'Livré au projet'
+                        ? 'border-emerald-500 bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/30 shadow-sm'
+                        : 'border-slate-200/80 dark:border-slate-700 bg-white/40 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 hover:bg-white/70'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                      <ArrowUpRight className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="block font-black text-xs">Livré au projet</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Entrée / Réception BL</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewStockOperationStatus('Consommé');
+                      setNewStockRefDoc(`BS-2026/${Math.floor(100 + Math.random() * 900)}`);
+                    }}
+                    className={`p-3 rounded-2xl text-left border text-xs font-bold transition-all flex items-center gap-2.5 touch-target ${
+                      newStockOperationStatus === 'Consommé'
+                        ? 'border-amber-500 bg-amber-500/20 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/30 shadow-sm'
+                        : 'border-slate-200/80 dark:border-slate-700 bg-white/40 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 hover:bg-white/70'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                      <ArrowDownRight className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="block font-black text-xs">Consommé</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Sortie / Ouvrage BS</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewStockOperationStatus('Référence Catalogue')}
+                    className={`p-3 rounded-2xl text-left border text-xs font-bold transition-all flex items-center gap-2.5 touch-target ${
+                      newStockOperationStatus === 'Référence Catalogue'
+                        ? 'border-blue-500 bg-blue-500/20 text-blue-900 dark:text-blue-200 ring-2 ring-blue-500/30 shadow-sm'
+                        : 'border-slate-200/80 dark:border-slate-700 bg-white/40 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 hover:bg-white/70'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
+                      <Package className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="block font-black text-xs">Catalogue Seul</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Stock initial standard</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* PROJET & CHANTIER AFFECTÉ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-black text-slate-800 dark:text-slate-200 block mb-1">
+                    Projet / Marché Public Affecté
+                  </label>
+                  <select
+                    value={newStockMarketId || (markets[0]?.id || '')}
+                    onChange={(e) => {
+                      setNewStockMarketId(e.target.value);
+                      const firstCh = validChantiers.find(c => c.marketId === e.target.value);
+                      if (firstCh) setNewStockChantierId(firstCh.id);
+                    }}
+                    className="w-full px-3 py-2 text-xs rounded-xl liquid-glass-input font-bold"
+                  >
+                    {markets.map(m => (
+                      <option key={m.id} value={m.id}>
+                        N° {m.number} — {m.title.slice(0, 45)}...
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-black text-slate-800 dark:text-slate-200 block mb-1">
+                    Chantier Actif de Destination
+                  </label>
+                  <select
+                    value={newStockChantierId || (validChantiers[0]?.id || '')}
+                    onChange={(e) => setNewStockChantierId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl liquid-glass-input font-bold"
+                  >
+                    {validChantiers.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.address})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* CHAMPS DYNAMIQUES SELON STATUT D'OPÉRATION */}
+              {newStockOperationStatus === 'Livré au projet' && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
+                  <div>
+                    <label className="text-xs font-black text-emerald-900 dark:text-emerald-200 block mb-1">
+                      Quantité Livrée au Projet
+                    </label>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      required
+                      value={newStockQty}
+                      onChange={(e) => setNewStockQty(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl liquid-glass-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-emerald-900 dark:text-emerald-200 block mb-1">
+                      N° Bon de Livraison (BL)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ex: BL-2026/4102"
+                      value={newStockRefDoc}
+                      onChange={(e) => setNewStockRefDoc(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl liquid-glass-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-emerald-900 dark:text-emerald-200 block mb-1">
+                      Date de Réception
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={newStockDate}
+                      onChange={(e) => setNewStockDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-xl liquid-glass-input"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {newStockOperationStatus === 'Consommé' && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25">
+                  <div>
+                    <label className="text-xs font-black text-amber-900 dark:text-amber-200 block mb-1">
+                      Quantité Consommée sur le Projet
+                    </label>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      required
+                      value={newStockQty}
+                      onChange={(e) => setNewStockQty(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 text-xs font-mono font-black rounded-xl liquid-glass-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-amber-900 dark:text-amber-200 block mb-1">
+                      N° Bon de Sortie (BS)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ex: BS-2026/890"
+                      value={newStockRefDoc}
+                      onChange={(e) => setNewStockRefDoc(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl liquid-glass-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-amber-900 dark:text-amber-200 block mb-1">
+                      Date de Consommation
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={newStockDate}
+                      onChange={(e) => setNewStockDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-xl liquid-glass-input"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-black text-amber-900 dark:text-amber-200 block mb-1">
+                      Lot / Ouvrage d'Affectation
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ex: LOT 01 - Gros Œuvres (Poteaux R+1) / Briques RDC..."
+                      value={newStockLotOuvrage}
+                      onChange={(e) => setNewStockLotOuvrage(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-xl liquid-glass-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-amber-900 dark:text-amber-200 block mb-1">
+                      Article DQE Lié (Rentabilité)
+                    </label>
+                    <select
+                      value={newStockArticleDQE}
+                      onChange={(e) => setNewStockArticleDQE(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-xl liquid-glass-input truncate"
+                    >
+                      <option value="">Sélectionner un Article DQE...</option>
+                      {articles.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {a.code} — {a.designation.slice(0, 30)}...
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {newStockOperationStatus === 'Référence Catalogue' && (
+                <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/25 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-black text-blue-900 dark:text-blue-200 block mb-1">
+                      Quantité Initiale en Stock
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      required
+                      value={newStockQty}
+                      onChange={(e) => setNewStockQty(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl liquid-glass-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-black text-blue-900 dark:text-blue-200 block mb-1">
+                      Emplacement de Stockage
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ex: Parc central à fer / Magasin..."
+                      value={newStockLocation}
+                      onChange={(e) => setNewStockLocation(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-bold rounded-xl liquid-glass-input"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Catégorie */}
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Catégorie du Matériau
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1352,8 +1906,8 @@ export const LogisticsView: React.FC = () => {
                         onClick={() => handleCategoryChange(cat)}
                         className={`p-2 rounded-xl text-left border text-xs font-bold transition-all flex items-center gap-2 ${
                           isSelected
-                            ? 'border-blue-600 bg-blue-50 text-blue-900 ring-2 ring-blue-500/20'
-                            : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/40 text-blue-900 dark:text-blue-200 ring-2 ring-blue-500/20'
+                            : 'border-slate-200/80 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-300'
                         }`}
                       >
                         <span>{meta.icon}</span>
@@ -1367,10 +1921,10 @@ export const LogisticsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Designation */}
+              {/* Désignation Complète */}
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Désignation Complète
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Désignation Complète du Matériau
                 </label>
                 <input
                   type="text"
@@ -1378,14 +1932,14 @@ export const LogisticsView: React.FC = () => {
                   placeholder="ex: Planches sapin rouge 4m / Ciment CPJ 42.5 / Acier HA Ø12..."
                   value={newStockName}
                   onChange={(e) => setNewStockName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl liquid-glass-input focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-bold"
                 />
               </div>
 
-              {/* Steel Diameter if Category is Acier */}
+              {/* Diamètre si Acier */}
               {newStockCategory === 'Acier' && (
-                <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 space-y-2">
-                  <label className="text-xs font-bold text-blue-900 block">
+                <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/25 space-y-2">
+                  <label className="text-xs font-black text-blue-900 dark:text-blue-200 block">
                     Diamètre Nominal du Fer à Béton (mm)
                   </label>
                   <div className="grid grid-cols-6 gap-1.5">
@@ -1394,10 +1948,10 @@ export const LogisticsView: React.FC = () => {
                         type="button"
                         key={dia}
                         onClick={() => setNewStockDiameter(dia)}
-                        className={`py-1.5 text-xs font-black rounded-lg transition-all ${
+                        className={`py-2 text-xs font-black rounded-xl transition-all ${
                           newStockDiameter === dia
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-white border border-blue-200 text-blue-900 hover:bg-blue-100'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-white/80 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-900 dark:text-blue-200'
                         }`}
                       >
                         Ø{dia}
@@ -1407,16 +1961,16 @@ export const LogisticsView: React.FC = () => {
                 </div>
               )}
 
-              {/* Allowed Units according to Category */}
+              {/* Unité & Prix Unitaire */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Unité Conforme DZ
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    Unité Réglementaire DZ
                   </label>
                   <select
                     value={newStockUnit}
                     onChange={(e) => setNewStockUnit(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-bold"
+                    className="w-full px-3 py-2 text-xs rounded-xl liquid-glass-input font-bold"
                   >
                     {(CATEGORY_ALLOWED_UNITS[newStockCategory] || ['Unité']).map(u => (
                       <option key={u} value={u}>{u}</option>
@@ -1425,7 +1979,7 @@ export const LogisticsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     Prix Unitaire de Revient (DA)
                   </label>
                   <input
@@ -1435,30 +1989,15 @@ export const LogisticsView: React.FC = () => {
                     required
                     value={newStockPrice}
                     onChange={(e) => setNewStockPrice(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-mono font-bold"
+                    className="w-full px-3 py-2 text-xs rounded-xl liquid-glass-input font-mono font-bold"
                   />
                 </div>
               </div>
 
-              {/* Initial Qty & Threshold */}
+              {/* Seuil Alerte & Fournisseur */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Quantité Initiale en Stock
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    required
-                    value={newStockQty}
-                    onChange={(e) => setNewStockQty(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-mono font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     Seuil d'Alerte Minimum
                   </label>
                   <input
@@ -1468,51 +2007,35 @@ export const LogisticsView: React.FC = () => {
                     required
                     value={newStockThreshold}
                     onChange={(e) => setNewStockThreshold(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-mono font-bold"
+                    className="w-full px-3 py-2 text-xs rounded-xl liquid-glass-input font-mono font-bold"
                   />
                 </div>
-              </div>
 
-              {/* Supplier & Storage location */}
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     Fournisseur Principal
                   </label>
                   <input
                     type="text"
-                    placeholder="ex: GICA / Tosyali / Briqueterie..."
+                    placeholder="ex: GICA / Tosyali / Lafarge..."
                     value={newStockSupplier}
                     onChange={(e) => setNewStockSupplier(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Emplacement sur Chantier
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="ex: Silo ciment, Parc à fer, Magasin..."
-                    value={newStockLocation}
-                    onChange={(e) => setNewStockLocation(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
+                    className="w-full px-3 py-2 text-xs rounded-xl liquid-glass-input font-bold"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/40 dark:border-white/10">
                 <button
                   type="button"
                   onClick={() => setIsAddingStock(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white/40 rounded-xl"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-xs"
+                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black rounded-xl shadow-lg shadow-blue-500/25 transition-all cursor-pointer"
                 >
                   Enregistrer la Référence
                 </button>

@@ -287,23 +287,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       )}
 
       {/* 1. TOP HEADER : PROPRIÉTÉS DU TABLEAU DE BORD & ACTIONS RAPIDES */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="liquid-glass-card p-5 border border-white/60 dark:border-white/10 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-blue-600 text-white shadow-xs">
+            <span className="p-1.5 rounded-xl bg-blue-600 text-white shadow-xs">
               <Building2 className="w-4 h-4" />
             </span>
-            <span className="text-xs font-black uppercase tracking-wider text-blue-700">
+            <span className="text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">
               ARCHILAB MANAGER • ERP BTP ALGÉRIE
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25">
               En Ligne
             </span>
           </div>
-          <h1 className="text-lg sm:text-xl font-black text-slate-900 mt-1">
+          <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-1">
             Tableau de Bord Exécutif
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Supervision du portefeuille de projets, suivi d'avancement des chantiers et pilotage financier conforme au Code des Marchés Publics
           </p>
         </div>
@@ -312,7 +312,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={openAddProjectModal}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Nouveau Projet</span>
@@ -320,7 +320,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
           <button
             onClick={() => onNavigate('ai-metre')}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-amber-200" />
             <span>Scanner Devis PDF</span>
@@ -328,22 +328,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 2. LES 4 CARTES KPI ESSENTIELLES (ÉLÉGANTES ET ÉPURÉES) */}
+      {/* 2. LES 4 CARTES KPI ESSENTIELLES (LIQUID GLASS ÉPURÉ) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Marchés */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2 hover:border-blue-300 transition-colors">
+        <div className="liquid-glass-card p-5 border border-white/60 dark:border-white/10 shadow-md space-y-2 hover:border-blue-400 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Portefeuille Marchés HT</span>
-            <span className="p-2 rounded-xl bg-blue-50 text-blue-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Portefeuille Marchés HT</span>
+            <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
               <Building2 className="w-4 h-4" />
             </span>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-mono tracking-tight tabular-nums">
               {formatDA(totalMarketsAmount)}
             </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-              <span className="font-bold text-blue-600">{activeCount} Projets Actifs</span>
+            <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-bold text-blue-600 dark:text-blue-400">{activeCount} Projets Actifs</span>
               <span>•</span>
               <span>{distinctClients.length} Maîtres d'Ouvrage</span>
             </div>
@@ -351,19 +351,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
 
         {/* Facturation Situations */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2 hover:border-emerald-300 transition-colors">
+        <div className="liquid-glass-card p-5 border border-white/60 dark:border-white/10 shadow-md space-y-2 hover:border-emerald-400 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Facturations Situations TTC</span>
-            <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Facturations Situations TTC</span>
+            <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <Receipt className="w-4 h-4" />
             </span>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-mono tracking-tight tabular-nums">
               {formatDA(totalNetPaidTTC)}
             </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-              <span className="font-bold text-emerald-600 flex items-center gap-1">
+            <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 {situations.filter(s => s.status === 'Validée / Payée').length} Payées
               </span>
@@ -374,36 +374,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
 
         {/* Retenue de Garantie */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2 hover:border-amber-300 transition-colors">
+        <div className="liquid-glass-card p-5 border border-white/60 dark:border-white/10 shadow-md space-y-2 hover:border-amber-400 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Retenues de Garantie (5%)</span>
-            <span className="p-2 rounded-xl bg-amber-50 text-amber-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Retenues de Garantie (5%)</span>
+            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
               <Scale className="w-4 h-4" />
             </span>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-mono tracking-tight tabular-nums">
               {formatDA(totalRetenueGarantie)}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Consignées jusqu'à la Réception Définitive (1 an)
             </p>
           </div>
         </div>
 
         {/* Reste à Réaliser */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2 hover:border-indigo-300 transition-colors">
+        <div className="liquid-glass-card p-5 border border-white/60 dark:border-white/10 shadow-md space-y-2 hover:border-indigo-400 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Reste à Réaliser HT</span>
-            <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Reste à Réaliser HT</span>
+            <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
               <TrendingUp className="w-4 h-4" />
             </span>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-mono tracking-tight tabular-nums">
               {formatDA(resteARealiser)}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Budget résiduel des marchés en cours
             </p>
           </div>

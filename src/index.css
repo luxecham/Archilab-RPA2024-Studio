@@ -3,9 +3,119 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --glass-bg: rgba(255, 255, 255, 0.65);
+    --glass-bg-card: rgba(255, 255, 255, 0.78);
+    --glass-bg-modal: rgba(255, 255, 255, 0.92);
+    --glass-border: rgba(255, 255, 255, 0.55);
+    --glass-border-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
+    --glass-shadow: 0 12px 36px -4px rgba(15, 23, 42, 0.08);
+  }
+
+  .dark {
+    --glass-bg: rgba(15, 23, 42, 0.65);
+    --glass-bg-card: rgba(30, 41, 59, 0.7);
+    --glass-bg-modal: rgba(15, 23, 42, 0.92);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-border-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+    --glass-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.45);
+  }
+
   body {
-    @apply bg-slate-100 text-slate-900 antialiased;
+    @apply antialiased transition-colors duration-300;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  body.theme-light {
+    background-color: #f8fafc;
+    background-image: 
+      radial-gradient(at 10% 10%, #e0f2fe 0px, transparent 45%),
+      radial-gradient(at 90% 15%, #eef2ff 0px, transparent 40%),
+      radial-gradient(at 50% 90%, #f1f5f9 0px, transparent 50%);
+    background-attachment: fixed;
+    color: #0f172a;
+  }
+
+  body.theme-dark {
+    background-color: #0b1120;
+    background-image: 
+      radial-gradient(at 10% 10%, #0e2a47 0px, transparent 45%),
+      radial-gradient(at 90% 15%, #1e1b4b 0px, transparent 40%),
+      radial-gradient(at 50% 90%, #0f172a 0px, transparent 55%);
+    background-attachment: fixed;
+    color: #f1f5f9;
+  }
+}
+
+/* Liquid Glass Utilities */
+.liquid-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-border-specular);
+}
+
+.liquid-glass-card {
+  background: var(--glass-bg-card);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 30px -4px rgba(15, 23, 42, 0.06), var(--glass-border-specular);
+  border-radius: 20px;
+}
+
+.liquid-glass-modal {
+  background: var(--glass-bg-modal);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), var(--glass-border-specular);
+}
+
+.liquid-glass-dock {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 16px 40px -6px rgba(15, 23, 42, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+
+.dark .liquid-glass-dock {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 16px 40px -6px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+}
+
+.liquid-glass-input {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(203, 213, 225, 0.7);
+  box-shadow: inset 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  border-radius: 14px;
+}
+
+.dark .liquid-glass-input {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Touch Friendly Targets for Mobile BTP Field Usage */
+@media (max-width: 768px) {
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  .mobile-bottom-sheet {
+    border-top-left-radius: 28px;
+    border-top-right-radius: 28px;
+    max-height: 92vh;
   }
 }
 
@@ -13,6 +123,7 @@
 @media print {
   body {
     background-color: white !important;
+    background-image: none !important;
     color: black !important;
   }
   
@@ -20,7 +131,7 @@
     display: none !important;
   }
   
-  header, aside {
+  header, aside, .liquid-glass-dock {
     display: none !important;
   }
 

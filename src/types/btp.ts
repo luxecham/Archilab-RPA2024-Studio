@@ -251,19 +251,28 @@ export type StockCategory =
 
 export type SteelDiameter = 6 | 8 | 10 | 12 | 16 | 20;
 
+export type StockOperationStatus = 'Livré au projet' | 'Consommé' | 'Référence Catalogue';
+
 export interface StockItem {
   id: string;
   chantierId: string;
+  marketId?: string;
   name: string;
   category: StockCategory;
   unit: string; // Bois: plaque | Ciment: sac | Granulat/Sable: m3 | Plomberie: ml/Unité | Élec: m.lineaire/Unité | Brique: unité/m2 | Sol: m3/carton/m2 | Acier: barre/tonne
   steelDiameter?: SteelDiameter;
-  quantityInStock: number;
+  quantityInStock: number; // Reste disponible sur chantier = Total Livré - Total Consommé
+  totalDelivered?: number; // Quantité totale livrée au projet (BL)
+  totalConsumed?: number; // Quantité totale consommée sur le projet (BS)
   minThreshold: number;
   unitPriceCost: number;
   lastRestockedDate: string;
   storageLocation?: string;
   supplier?: string;
+  operationStatus?: StockOperationStatus;
+  targetLotName?: string;
+  targetArticleId?: string;
+  referenceDoc?: string;
 }
 
 export interface StockMovement {
@@ -271,13 +280,18 @@ export interface StockMovement {
   stockItemId: string;
   stockItemName: string;
   chantierId: string;
+  marketId?: string;
   type: 'Entrée (Réception BL)' | 'Sortie (Consommation)' | 'Inventaire & Ajustement';
   quantity: number;
   unit: string;
   date: string;
-  referenceDoc?: string; // ex: BL N° 4512 / Bon de pesée / Bon de sortie coulage
+  referenceDoc?: string; // ex: BL N° 4512 / BS N° 821 / Bon de pesée / Bon de sortie coulage
   destinationOrSource?: string; // ex: Coulage Poteaux R+1 / GICA Cimenterie
   notes?: string;
+  lotName?: string;
+  articleId?: string;
+  unitCostDA?: number;
+  totalCostDA?: number;
 }
 
 export interface PurchaseOrder {

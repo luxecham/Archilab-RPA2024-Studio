@@ -1573,6 +1573,11 @@ interface BTPContextType {
   lang: 'fr' | 'ar';
   setLang: (lang: 'fr' | 'ar') => void;
 
+  // Thème Liquid Glass & Mode Sombre
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
+  toggleTheme: () => void;
+
   // Actions Marchés & DQE
   addMarket: (market: Market) => void;
   updateMarket: (market: Market) => void;
@@ -1584,6 +1589,11 @@ interface BTPContextType {
   addArticle: (article: DQEArticle) => void;
   updateArticle: (article: DQEArticle) => void;
   deleteArticle: (articleId: string) => void;
+  injectDQEIntoMarket: (marketId: string, newLots: Lot[], newSections: Section[], newArticles: DQEArticle[]) => void;
+
+  // Sauvegarde & Restauration Base de Données (.json)
+  exportDatabaseJSON: () => void;
+  importDatabaseJSON: (jsonString: string) => boolean;
 
   // Actions Attachements
   addAttachement: (attachement: Attachement) => void;
@@ -1630,6 +1640,39 @@ const LOCAL_STORAGE_KEY = 'archilab_manager_dz_v3';
 
 export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [lang, setLang] = useState<'fr' | 'ar'>('fr');
+
+  // Thème Liquid Glass (Clair / Sombre)
+  const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_theme`);
+      if (saved === 'dark' || saved === 'light') return saved;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch (e) {
+      return 'light';
+    }
+  });
+
+  const setTheme = (t: 'light' | 'dark') => {
+    setThemeState(t);
+    try {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_theme`, t);
+    } catch (e) {}
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
+
+  useEffect(() => {
+    try {
+      document.body.className = `theme-${theme} ${theme === 'dark' ? 'dark' : ''}`;
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch (e) {}
+  }, [theme]);
   const [selectedMarketId, setSelectedMarketId] = useState<string>(() => {
     try {
       const savedMarkets = localStorage.getItem(`${LOCAL_STORAGE_KEY}_markets`);
@@ -1685,14 +1728,33 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [stocks, setStocks] = useState<StockItem[]>(() => {
+    const formatItems = (list: StockItem[]) => list.map(item => {
+      const delivered = item.totalDelivered !== undefined 
+        ? item.totalDelivered 
+        : (item.quantityInStock + Math.round(item.quantityInStock * 0.35));
+      const consumed = item.totalConsumed !== undefined 
+        ? item.totalConsumed 
+        : Math.round(item.quantityInStock * 0.35);
+      const remaining = item.operationStatus === 'Référence Catalogue' 
+        ? item.quantityInStock 
+        : Math.max(0, delivered - consumed);
+      return {
+        ...item,
+        operationStatus: item.operationStatus || 'Livré au projet',
+        totalDelivered: delivered,
+        totalConsumed: consumed,
+        quantityInStock: remaining
+      };
+    });
+
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_stocks`);
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return formatItems(parsed);
       } catch (e) {}
     }
-    return INITIAL_STOCKS;
+    return formatItems(INITIAL_STOCKS);
   });
 
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => {
@@ -2125,23 +2187,205 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCheques(prev => prev.map(c => c.id === id ? { ...c, status } : c));
   };
   
-  // Actions Stocks & Mouvements
-  const addStockItem = (item: StockItem) => setStocks(prev => [item, ...prev]);
-  const updateStockQuantity = (id: string, delta: number) => {
-    setStocks(prev => prev.map(s => s.id === id ? { ...s, quantityInStock: Math.max(0, s.quantityInStock + delta) } : s));
+  // Actions Stocks & Mouvements avec synchronisation intelligente
+  const addStockItem = (item: StockItem) => {
+    const isDelivered = item.operationStatus === 'Livré au projet';
+    const isConsumed = item.operationStatus === 'Consommé';
+    
+    const delivered = item.totalDelivered !== undefined 
+      ? item.totalDelivered 
+      : (isDelivered ? item.quantityInStock : (isConsumed ? item.quantityInStock * 1.5 : 0));
+    
+    const consumed = item.totalConsumed !== undefined 
+      ? item.totalConsumed 
+      : (isConsumed ? item.quantityInStock : 0);
+    
+    const remaining = item.operationStatus === 'Référence Catalogue' 
+      ? item.quantityInStock 
+      : Math.max(0, delivered - consumed);
+
+    const finalizedItem: StockItem = {
+      ...item,
+      totalDelivered: delivered,
+      totalConsumed: consumed,
+      quantityInStock: remaining
+    };
+
+    setStocks(prev => [finalizedItem, ...prev]);
+
+    // Génération automatique du mouvement dans le journal BL / BS
+    const movementDate = finalizedItem.lastRestockedDate || new Date().toISOString().split('T')[0];
+    if (isDelivered) {
+      const mov: StockMovement = {
+        id: `mov-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        stockItemId: finalizedItem.id,
+        stockItemName: finalizedItem.name,
+        chantierId: finalizedItem.chantierId,
+        marketId: finalizedItem.marketId,
+        type: 'Entrée (Réception BL)',
+        quantity: delivered,
+        unit: finalizedItem.unit,
+        date: movementDate,
+        referenceDoc: finalizedItem.referenceDoc || `BL-2026/${Math.floor(1000 + Math.random() * 9000)}`,
+        destinationOrSource: finalizedItem.supplier || 'Livraison Fournisseur BTP DZ',
+        notes: `Réception de ${delivered} ${finalizedItem.unit} sur chantier`,
+        unitCostDA: finalizedItem.unitPriceCost,
+        totalCostDA: delivered * finalizedItem.unitPriceCost
+      };
+      setStockMovements(prev => [mov, ...prev]);
+    } else if (isConsumed) {
+      const mov: StockMovement = {
+        id: `mov-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        stockItemId: finalizedItem.id,
+        stockItemName: finalizedItem.name,
+        chantierId: finalizedItem.chantierId,
+        marketId: finalizedItem.marketId,
+        type: 'Sortie (Consommation)',
+        quantity: consumed,
+        unit: finalizedItem.unit,
+        date: movementDate,
+        referenceDoc: finalizedItem.referenceDoc || `BS-2026/${Math.floor(100 + Math.random() * 900)}`,
+        destinationOrSource: finalizedItem.targetLotName || 'Mise en œuvre chantier',
+        notes: `Consommation de ${consumed} ${finalizedItem.unit} sur ouvrage`,
+        lotName: finalizedItem.targetLotName,
+        articleId: finalizedItem.targetArticleId,
+        unitCostDA: finalizedItem.unitPriceCost,
+        totalCostDA: consumed * finalizedItem.unitPriceCost
+      };
+      setStockMovements(prev => [mov, ...prev]);
+    }
   };
+
+  const updateStockQuantity = (id: string, delta: number, type?: 'delivered' | 'consumed') => {
+    setStocks(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      let nextDelivered = s.totalDelivered ?? s.quantityInStock;
+      let nextConsumed = s.totalConsumed ?? 0;
+      if (type === 'delivered' || (type === undefined && delta > 0)) {
+        nextDelivered = Math.max(0, nextDelivered + Math.abs(delta));
+      } else {
+        nextConsumed = Math.max(0, nextConsumed + Math.abs(delta));
+      }
+      const nextRemaining = Math.max(0, nextDelivered - nextConsumed);
+      return {
+        ...s,
+        totalDelivered: nextDelivered,
+        totalConsumed: nextConsumed,
+        quantityInStock: nextRemaining
+      };
+    }));
+  };
+
   const updateStockItem = (item: StockItem) => {
     setStocks(prev => prev.map(s => s.id === item.id ? item : s));
   };
+
   const deleteStockItem = (id: string) => {
     setStocks(prev => prev.filter(s => s.id !== id));
   };
+
   const recordStockMovement = (movement: StockMovement) => {
     setStockMovements(prev => [movement, ...prev]);
     if (movement.type.startsWith('Entrée')) {
-      updateStockQuantity(movement.stockItemId, movement.quantity);
+      updateStockQuantity(movement.stockItemId, movement.quantity, 'delivered');
     } else if (movement.type.startsWith('Sortie')) {
-      updateStockQuantity(movement.stockItemId, -movement.quantity);
+      updateStockQuantity(movement.stockItemId, movement.quantity, 'consumed');
+    }
+  };
+
+  // Injection 100% Dynamique du DQE extrait par l'OCR dans le Marché Actif
+  const injectDQEIntoMarket = (marketId: string, newLots: Lot[], newSections: Section[], newArticles: DQEArticle[]) => {
+    const remainingLots = lots.filter(l => l.marketId !== marketId);
+    const newLotIds = new Set(newLots.map(l => l.id));
+    const remainingSections = sections.filter(s => !newLotIds.has(s.lotId));
+    const remainingArticles = articles.filter(a => a.marketId !== marketId);
+
+    const calculatedTotalHT = newArticles.reduce((sum, a) => sum + (a.currentContractQuantity * a.unitPriceHT), 0);
+
+    const updatedMarkets = markets.map(m => {
+      if (m.id !== marketId) return m;
+      return {
+        ...m,
+        initialAmountHT: calculatedTotalHT,
+        currentAmountHT: calculatedTotalHT,
+        bankGuarantees: {
+          ...m.bankGuarantees,
+          bonneExecution: Math.round(calculatedTotalHT * 0.05),
+          restitutionAvance: Math.round(calculatedTotalHT * (m.avanceForfaitaireRate / 100))
+        }
+      };
+    });
+
+    const nextLots = [...remainingLots, ...newLots];
+    const nextSections = [...remainingSections, ...newSections];
+    const nextArticles = [...remainingArticles, ...newArticles];
+
+    setMarkets(updatedMarkets);
+    setLots(nextLots);
+    setSections(nextSections);
+    setArticles(nextArticles);
+
+    try {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_markets`, JSON.stringify(updatedMarkets));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_lots`, JSON.stringify(nextLots));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_sections`, JSON.stringify(nextSections));
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_articles`, JSON.stringify(nextArticles));
+    } catch (e) {}
+  };
+
+  // Sauvegarde & Restauration de la Base de Données (.json)
+  const exportDatabaseJSON = () => {
+    const dbPayload = {
+      app: 'ArchiLab Manager DZ',
+      version: '2.0-liquid-glass',
+      exportedAt: new Date().toISOString(),
+      markets,
+      lots,
+      sections,
+      articles,
+      chantiers,
+      attachements,
+      avenants,
+      situations,
+      stocks,
+      equipment,
+      stockMovements,
+      workers,
+      cheques,
+      expenses,
+      purchaseOrders
+    };
+    const blob = new Blob([JSON.stringify(dbPayload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `archilab_manager_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importDatabaseJSON = (jsonString: string): boolean => {
+    try {
+      const data = JSON.parse(jsonString);
+      if (!data.markets || !Array.isArray(data.markets)) return false;
+      if (data.markets) setMarkets(data.markets);
+      if (data.lots) setLots(data.lots);
+      if (data.sections) setSections(data.sections);
+      if (data.articles) setArticles(data.articles);
+      if (data.chantiers) setChantiers(data.chantiers);
+      if (data.attachements) setAttachements(data.attachements);
+      if (data.avenants) setAvenants(data.avenants);
+      if (data.situations) setSituations(data.situations);
+      if (data.stocks) setStocks(data.stocks);
+      if (data.equipment) setEquipment(data.equipment);
+      if (data.stockMovements) setStockMovements(data.stockMovements);
+      if (data.workers) setWorkers(data.workers);
+      if (data.cheques) setCheques(data.cheques);
+      if (data.expenses) setExpenses(data.expenses);
+      if (data.purchaseOrders) setPurchaseOrders(data.purchaseOrders);
+      return true;
+    } catch (e) {
+      return false;
     }
   };
 
@@ -2208,6 +2452,9 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedMarketId,
         lang,
         setLang,
+        theme,
+        setTheme,
+        toggleTheme,
         addMarket,
         updateMarket,
         deleteMarket,
@@ -2218,6 +2465,9 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addArticle,
         updateArticle,
         deleteArticle,
+        injectDQEIntoMarket,
+        exportDatabaseJSON,
+        importDatabaseJSON,
         addAttachement,
         updateAttachement,
         validateAttachement,

@@ -22,8 +22,8 @@ const MainLayout: React.FC = () => {
   const { lang } = useBTP();
 
   return (
-    <div className={`min-h-screen bg-slate-100/70 flex flex-col ${lang === 'ar' ? 'font-sans' : 'font-sans'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      {/* Sidebar Navigation */}
+    <div className={`min-h-screen flex flex-col overflow-x-hidden ${lang === 'ar' ? 'font-sans' : 'font-sans'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      {/* Sidebar Navigation & Floating Mobile Dock */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -32,12 +32,12 @@ const MainLayout: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className="lg:pl-72 flex flex-col flex-1 min-h-screen">
-        {/* Top Navbar */}
+      <div className="lg:pl-72 flex flex-col flex-1 min-h-screen overflow-x-hidden">
+        {/* Top Navbar Liquid Glass */}
         <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
         {/* View Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 max-w-7xl w-full mx-auto overflow-x-hidden">
           {activeTab === 'dashboard' && <DashboardView onNavigate={setActiveTab} />}
           {activeTab === 'projects' && <ProjectsView onNavigate={setActiveTab} />}
           {activeTab === 'markets' && <MarketsView />}
