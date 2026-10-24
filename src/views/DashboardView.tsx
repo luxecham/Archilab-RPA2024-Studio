@@ -17,7 +17,11 @@ import {
   Check, 
   Sparkles,
   FolderKanban,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  AlertOctagon
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 import { formatDA, formatNumberDZ, ALGERIAN_WILAYAS } from '../utils/dzFormatters';
@@ -51,12 +55,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     setSelectedMarketId, 
     addMarket, 
     addLot, 
-    addChantier 
+    addChantier,
+    deleteMarket,
+    archiveMarket,
+    unarchiveMarket
   } = useBTP();
 
   // Search & Client filter
   const [projectSearch, setProjectSearch] = useState('');
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'archived'>('active');
 
   // Modal State for New Project
   const [isAddingProject, setIsAddingProject] = useState(false);
@@ -74,10 +82,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [newOdsDate, setNewOdsDate] = useState(new Date().toISOString().split('T')[0]);
   const [newDurationMonths, setNewDurationMonths] = useState<number>(12);
 
+  // Modal State for Project Deletion Confirmation
+  const [projectToDelete, setProjectToDelete] = useState<Market | null>(null);
+
+  // Transient Toast Notification
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  const triggerNotice = (msg: string) => {
+    setActionNotice(msg);
+    setTimeout(() => setActionNotice(null), 4000);
+  };
+
   const currentMarket = markets.find(m => m.id === selectedMarketId) || markets[0];
 
-  // Calculs financiers globaux
-  const totalMarketsAmount = markets.reduce((acc, m) => acc + m.currentAmountHT, 0);
+  // Calculs financiers globaux (uniquement sur les marchés non-archivés par défaut pour la comptabilité active)
+  const activeMarkets = markets.filter(m => m.status !== 'Archivé');
+  const totalMarketsAmount = activeMarkets.reduce((acc, m) => acc + m.currentAmountHT, 0);
   const totalBilledHT = situations.reduce((acc, s) => acc + s.grossAmountCurrentHT, 0);
   const totalNetPaidTTC = situations.reduce((acc, s) => acc + s.netToPayTTC, 0);
   const totalRetenueGarantie = situations.reduce((acc, s) => acc + s.retenueGarantieHT, 0);
@@ -99,7 +119,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   // Liste unique des Maîtres d'Ouvrage
   const distinctClients = Array.from(new Set(markets.map(m => m.client.trim())));
 
-  // Filtrage des marchés
+  // Filtrage des marchés avec Statut (Actifs / Archivés / Tous)
   const filteredMarkets = markets.filter(m => {
     const matchesSearch = 
       m.title.toLowerCase().includes(projectSearch.toLowerCase()) ||
@@ -109,7 +129,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
     const matchesClient = selectedClientFilter === 'all' || m.client.trim() === selectedClientFilter.trim();
 
-    return matchesSearch && matchesClient;
+    const matchesStatus = 
+      statusFilter === 'all' ? true :
+      statusFilter === 'active' ? m.status !== 'Archivé' :
+      m.status === 'Archivé';
+
+    return matchesSearch && matchesClient && matchesStatus;
   });
 
   // Groupement des marchés par Maître d'Ouvrage
@@ -123,6 +148,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       count: clientMarkets.length
     };
   }).filter(group => group.count > 0);
+
+  const activeCount = markets.filter(m => m.status !== 'Archivé').length;
+  const archivedCount = markets.filter(m => m.status === 'Archivé').length;
+
+  const handleToggleArchive = (market: Market) => {
+    if (market.status === 'Archivé') {
+      unarchiveMarket(market.id);
+      triggerNotice(`Projet « ${market.title} » restauré avec succès.`);
+    } else {
+      archiveMarket(market.id);
+      triggerNotice(`Projet « ${market.title} » archivé.`);
+    }
+  };
+
+  const confirmDeleteProject = () => {
+    if (!projectToDelete) return;
+    const deletedTitle = projectToDelete.title;
+    deleteMarket(projectToDelete.id);
+    setProjectToDelete(null);
+    triggerNotice(`Projet « ${deletedTitle} » supprimé définitivement.`);
+  };
 
   const openAddProjectModal = () => {
     const randomNum = Math.floor(10 + Math.random() * 89);
@@ -204,6 +250,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     addChantier(initialChantier);
     setSelectedMarketId(newMarketId);
     setIsAddingProject(false);
+    triggerNotice(`Nouveau projet « ${newTitle.trim()} » créé et activé.`);
   };
 
   const getWilayaName = (code: string) => {
@@ -213,6 +260,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-6">
+      {/* NOTIFICATION TOAST FLOTTANTE */}
+      {actionNotice && (
+        <div className="p-3.5 rounded-2xl bg-slate-900 text-white text-xs font-bold flex items-center justify-between shadow-xl border border-slate-700 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{actionNotice}</span>
+          </div>
+          <button 
+            onClick={() => setActionNotice(null)} 
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* 1. TOP HEADER : PROPRIÉTÉS DU TABLEAU DE BORD & ACTIONS RAPIDES */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -270,7 +333,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               {formatDA(totalMarketsAmount)}
             </div>
             <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-              <span className="font-bold text-blue-600">{markets.length} Projets</span>
+              <span className="font-bold text-blue-600">{activeCount} Projets Actifs</span>
               <span>•</span>
               <span>{distinctClients.length} Maîtres d'Ouvrage</span>
             </div>
@@ -337,16 +400,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 3. PROJET ACTIF EN VEDETTE (CLEAN, MODERNE & COMPLET) */}
-      {currentMarket && (
-        <div className="bg-white rounded-2xl border border-blue-200 shadow-sm p-6 space-y-5">
+      {/* 3. PROJET ACTIF EN VEDETTE (AVEC BOUTONS ARCHIVER & SUPPRIMER) */}
+      {currentMarket ? (
+        <div className={`bg-white rounded-2xl border shadow-sm p-6 space-y-5 transition-all ${
+          currentMarket.status === 'Archivé' ? 'border-amber-300 bg-amber-50/20' : 'border-blue-200'
+        }`}>
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2.5 py-0.5 rounded-md bg-blue-600 text-white font-mono font-bold text-xs">
                   {currentMarket.number}
                 </span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                  currentMarket.status === 'Archivé' 
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}>
                   {currentMarket.status}
                 </span>
                 <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
@@ -364,10 +433,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* Quick action buttons for the current market */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => onNavigate('markets')}
-                className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
               >
                 <FileSpreadsheet className="w-4 h-4 text-blue-600" />
                 <span>Marché & DQE</span>
@@ -375,18 +444,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
               <button
                 onClick={() => onNavigate('chantiers')}
-                className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
               >
                 <HardHat className="w-4 h-4 text-amber-500" />
-                <span>Chantier & Ouvriers</span>
+                <span>Chantier</span>
               </button>
 
               <button
                 onClick={() => onNavigate('attachements')}
-                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition-colors"
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm transition-colors"
               >
                 <FileText className="w-4 h-4" />
                 <span>Attachements</span>
+              </button>
+
+              {/* BOUTON ARCHIVER / DÉSARCHIVER PROJET ACTIF */}
+              <button
+                onClick={() => handleToggleArchive(currentMarket)}
+                title={currentMarket.status === 'Archivé' ? 'Désarchiver le projet' : 'Archiver le projet'}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  currentMarket.status === 'Archivé'
+                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
+                    : 'border-slate-200 hover:bg-amber-50 hover:border-amber-200 text-slate-600 hover:text-amber-800'
+                }`}
+              >
+                {currentMarket.status === 'Archivé' ? (
+                  <>
+                    <ArchiveRestore className="w-4 h-4 text-amber-700" />
+                    <span>Désarchiver</span>
+                  </>
+                ) : (
+                  <>
+                    <Archive className="w-4 h-4 text-amber-600" />
+                    <span>Archiver</span>
+                  </>
+                )}
+              </button>
+
+              {/* BOUTON SUPPRIMER PROJET ACTIF */}
+              <button
+                onClick={() => setProjectToDelete(currentMarket)}
+                title="Supprimer définitivement le projet"
+                className="px-3 py-1.5 rounded-xl border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-rose-600" />
+                <span>Supprimer</span>
               </button>
             </div>
           </div>
@@ -458,9 +560,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
         </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center space-y-3">
+          <p className="text-xs text-slate-500 font-medium">Aucun projet sélectionné ou disponible.</p>
+          <button
+            onClick={openAddProjectModal}
+            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Créer un Nouveau Projet</span>
+          </button>
+        </div>
       )}
 
-      {/* 4. PORTEFEUILLE PROJETS CLASSÉ PAR MAÎTRE D'OUVRAGE (CLEAN & SIMPLE) */}
+      {/* 4. PORTEFEUILLE PROJETS CLASSÉ PAR MAÎTRE D'OUVRAGE (AVEC ACTIONS ARCHIVER & SUPPRIMER) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div>
@@ -469,19 +582,57 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               Portefeuille des Projets classé par Maître d'Ouvrage
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Sélectionnez et basculez d'un projet à l'autre en un clic
+              Sélectionnez, archivez ou supprimez vos projets en toute simplicité
             </p>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Rechercher par titre, N°..."
-              value={projectSearch}
-              onChange={(e) => setProjectSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status Filter Toggle */}
+            <div className="bg-slate-100 p-0.5 rounded-xl flex items-center text-xs font-bold">
+              <button
+                onClick={() => setStatusFilter('active')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  statusFilter === 'active' 
+                    ? 'bg-white text-blue-700 shadow-xs font-black' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Actifs ({activeCount})
+              </button>
+              <button
+                onClick={() => setStatusFilter('archived')}
+                className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                  statusFilter === 'archived' 
+                    ? 'bg-white text-amber-800 shadow-xs font-black' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5 text-amber-600" />
+                <span>Archives ({archivedCount})</span>
+              </button>
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  statusFilter === 'all' 
+                    ? 'bg-white text-slate-900 shadow-xs font-black' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Tous ({markets.length})
+              </button>
+            </div>
+
+            {/* Quick Search */}
+            <div className="relative w-full sm:w-56">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Rechercher par titre, N°..."
+                value={projectSearch}
+                onChange={(e) => setProjectSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 
@@ -495,10 +646,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Tous les Projets ({markets.length})
+            Tous les Maîtres d'Ouvrage ({filteredMarkets.length})
           </button>
           {distinctClients.map(client => {
-            const count = markets.filter(m => m.client.trim() === client).length;
+            const count = filteredMarkets.filter(m => m.client.trim() === client).length;
+            if (count === 0 && selectedClientFilter !== client) return null;
             return (
               <button
                 key={client}
@@ -519,98 +671,147 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
         {/* Grouped Projects View */}
         <div className="space-y-4 pt-1">
-          {clientsWithMarkets.map(group => (
-            <div key={group.client} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50/20">
-              <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Landmark className="w-3.5 h-3.5 text-blue-700" />
-                  <strong className="text-slate-900">{group.client}</strong>
-                  <span className="px-2 py-0.2 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
-                    {group.count} Marché{group.count > 1 ? 's' : ''}
+          {clientsWithMarkets.length === 0 ? (
+            <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 space-y-2">
+              <p className="text-xs text-slate-500 font-medium">
+                Aucun projet ne correspond à vos filtres actuels.
+              </p>
+              {statusFilter === 'archived' && (
+                <p className="text-[11px] text-slate-400">
+                  Vous n'avez aucun projet dans les archives.
+                </p>
+              )}
+            </div>
+          ) : (
+            clientsWithMarkets.map(group => (
+              <div key={group.client} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50/20">
+                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Landmark className="w-3.5 h-3.5 text-blue-700" />
+                    <strong className="text-slate-900">{group.client}</strong>
+                    <span className="px-2 py-0.2 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
+                      {group.count} Marché{group.count > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <span className="font-mono font-bold text-slate-700 text-xs">
+                    {formatDA(group.totalHT)}
                   </span>
                 </div>
-                <span className="font-mono font-bold text-slate-700 text-xs">
-                  {formatDA(group.totalHT)}
-                </span>
-              </div>
 
-              <div className="divide-y divide-slate-100">
-                {group.markets.map(m => {
-                  const isSelected = m.id === selectedMarketId;
-                  const chantier = chantiers.find(c => c.marketId === m.id);
-                  const physProgress = chantier ? chantier.physicalProgressPct : 20;
+                <div className="divide-y divide-slate-100">
+                  {group.markets.map(m => {
+                    const isSelected = m.id === selectedMarketId;
+                    const isArchived = m.status === 'Archivé';
+                    const chantier = chantiers.find(c => c.marketId === m.id);
+                    const physProgress = chantier ? chantier.physicalProgressPct : 20;
 
-                  return (
-                    <div 
-                      key={m.id} 
-                      className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                        isSelected ? 'bg-blue-50/60 font-semibold' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-slate-900 text-white">
-                            {m.number}
-                          </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                            {m.status}
-                          </span>
-                          {isSelected && (
-                            <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-600 text-white flex items-center gap-0.5">
-                              <Check className="w-3 h-3" />
-                              Actif
+                    return (
+                      <div 
+                        key={m.id} 
+                        className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                          isArchived 
+                            ? 'bg-amber-50/30 opacity-90' 
+                            : isSelected 
+                            ? 'bg-blue-50/60 font-semibold' 
+                            : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-slate-900 text-white">
+                              {m.number}
                             </span>
-                          )}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                              isArchived 
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {m.status}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded bg-blue-600 text-white flex items-center gap-0.5">
+                                <Check className="w-3 h-3" />
+                                Actif
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                            {m.title}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-slate-400" />
+                            {m.commune} ({getWilayaName(m.wilaya)})
+                          </p>
                         </div>
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                          {m.title}
-                        </h4>
-                        <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400" />
-                          {m.commune} ({getWilayaName(m.wilaya)})
-                        </p>
+
+                        <div className="flex items-center gap-4 self-end sm:self-auto shrink-0">
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Montant HT</span>
+                            <strong className="text-xs sm:text-sm font-mono font-bold text-slate-900 block">
+                              {formatDA(m.currentAmountHT)}
+                            </strong>
+                            <span className="text-[10px] text-amber-600 font-mono font-bold block">
+                              Avancement : {physProgress}%
+                            </span>
+                          </div>
+
+                          {/* ACTION BUTTONS GROUP */}
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => setSelectedMarketId(m.id)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                isSelected
+                                  ? 'bg-blue-600 text-white cursor-default'
+                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                              }`}
+                            >
+                              {isSelected ? '✓ Actif' : 'Sélectionner'}
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setSelectedMarketId(m.id);
+                                onNavigate('markets');
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold"
+                            >
+                              DQE
+                            </button>
+
+                            {/* BOUTON ARCHIVER / DÉSARCHIVER */}
+                            <button
+                              onClick={() => handleToggleArchive(m)}
+                              title={isArchived ? 'Désarchiver le projet' : 'Archiver le projet'}
+                              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                isArchived 
+                                  ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300' 
+                                  : 'border-slate-200 hover:bg-amber-50 text-slate-500 hover:text-amber-700'
+                              }`}
+                            >
+                              {isArchived ? (
+                                <ArchiveRestore className="w-4 h-4 text-amber-700" />
+                              ) : (
+                                <Archive className="w-4 h-4" />
+                              )}
+                            </button>
+
+                            {/* BOUTON SUPPRIMER */}
+                            <button
+                              onClick={() => setProjectToDelete(m)}
+                              title="Supprimer définitivement le projet"
+                              className="p-1.5 rounded-lg border border-slate-200 hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-
-                      <div className="flex items-center gap-4 self-end sm:self-auto shrink-0">
-                        <div className="text-right">
-                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Montant HT</span>
-                          <strong className="text-xs sm:text-sm font-mono font-bold text-slate-900 block">
-                            {formatDA(m.currentAmountHT)}
-                          </strong>
-                          <span className="text-[10px] text-amber-600 font-mono font-bold block">
-                            Avancement : {physProgress}%
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => setSelectedMarketId(m.id)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                              isSelected
-                                ? 'bg-blue-600 text-white cursor-default'
-                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                            }`}
-                          >
-                            {isSelected ? '✓ Actif' : 'Sélectionner'}
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setSelectedMarketId(m.id);
-                              onNavigate('markets');
-                            }}
-                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold"
-                          >
-                            DQE
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -721,7 +922,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 6. MODAL ÉPURÉE POUR CRÉER UN NOUVEAU PROJET */}
+      {/* 6. MODAL DE CONFIRMATION DE SUPPRESSION D'UN PROJET */}
+      {projectToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-rose-200 shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <AlertOctagon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-rose-950">Supprimer Définitivement le Projet ?</h3>
+                <p className="text-[11px] text-rose-700">Cette action est irréversible</p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-3 text-xs">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-slate-900 text-white">
+                  {projectToDelete.number}
+                </span>
+                <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                  {projectToDelete.title}
+                </h4>
+                <p className="text-slate-500 text-[11px]">
+                  Maître d'Ouvrage : <strong className="text-slate-700">{projectToDelete.client}</strong>
+                </p>
+                <p className="text-slate-500 text-[11px]">
+                  Montant Contractuel : <strong className="text-slate-900 font-mono">{formatDA(projectToDelete.currentAmountHT)}</strong>
+                </p>
+              </div>
+
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                La suppression effacera l'ensemble du DQE, les lots, les fiches chantier et les attachements associés à ce projet.
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setProjectToDelete(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteProject}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Confirmer la Suppression</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. MODAL ÉPURÉE POUR CRÉER UN NOUVEAU PROJET */}
       {isAddingProject && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -845,13 +1102,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => setIsAddingProject(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold transition-colors"
+                  className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold transition-colors cursor-pointer"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-md transition-colors"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-md transition-colors cursor-pointer"
                 >
                   Créer et Activer le Projet
                 </button>

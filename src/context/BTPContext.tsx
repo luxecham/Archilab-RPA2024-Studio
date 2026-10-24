@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   Market,
+  MarketStatus,
   DQEArticle,
   Lot,
   Section,
@@ -949,6 +950,9 @@ interface BTPContextType {
   // Actions Marchés & DQE
   addMarket: (market: Market) => void;
   updateMarket: (market: Market) => void;
+  deleteMarket: (marketId: string) => void;
+  archiveMarket: (marketId: string) => void;
+  unarchiveMarket: (marketId: string) => void;
   addLot: (lot: Lot) => void;
   addSection: (section: Section) => void;
   addArticle: (article: DQEArticle) => void;
@@ -1063,6 +1067,27 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addMarket = (market: Market) => setMarkets(prev => [market, ...prev]);
   const updateMarket = (updated: Market) => setMarkets(prev => prev.map(m => m.id === updated.id ? updated : m));
+  const deleteMarket = (marketId: string) => {
+    setMarkets(prev => {
+      const remaining = prev.filter(m => m.id !== marketId);
+      if (selectedMarketId === marketId && remaining.length > 0) {
+        setSelectedMarketId(remaining[0].id);
+      }
+      return remaining;
+    });
+    setLots(prev => prev.filter(l => l.marketId !== marketId));
+    setArticles(prev => prev.filter(a => a.marketId !== marketId));
+    setChantiers(prev => prev.filter(c => c.marketId !== marketId));
+    setAttachements(prev => prev.filter(att => att.marketId !== marketId));
+    setAvenants(prev => prev.filter(av => av.marketId !== marketId));
+    setSituations(prev => prev.filter(sit => sit.marketId !== marketId));
+  };
+  const archiveMarket = (marketId: string) => {
+    setMarkets(prev => prev.map(m => m.id === marketId ? { ...m, status: 'Archivé' as MarketStatus } : m));
+  };
+  const unarchiveMarket = (marketId: string) => {
+    setMarkets(prev => prev.map(m => m.id === marketId ? { ...m, status: 'En cours' as MarketStatus } : m));
+  };
   const addLot = (lot: Lot) => setLots(prev => [...prev, lot]);
   const addSection = (section: Section) => setSections(prev => [...prev, section]);
   const addArticle = (article: DQEArticle) => setArticles(prev => [...prev, article]);
@@ -1365,6 +1390,9 @@ export const BTPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLang,
         addMarket,
         updateMarket,
+        deleteMarket,
+        archiveMarket,
+        unarchiveMarket,
         addLot,
         addSection,
         addArticle,

@@ -24,7 +24,7 @@ export interface Tender {
 }
 
 export type MarketType = 'Marché Public' | 'Convention' | 'Contrat' | 'Bon de Commande';
-export type MarketStatus = 'En cours' | 'En arrêt' | 'Réception Provisoire' | 'Réception Définitive' | 'Clôturé';
+export type MarketStatus = 'En cours' | 'En arrêt' | 'Réception Provisoire' | 'Réception Définitive' | 'Clôturé' | 'Archivé';
 
 export interface Market {
   id: string;
