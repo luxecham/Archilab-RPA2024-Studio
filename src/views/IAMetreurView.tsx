@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Sparkles, 
   Upload, 
@@ -27,7 +27,14 @@ import {
   ShieldCheck,
   Scale,
   ShieldAlert,
-  FolderKanban
+  FolderKanban,
+  Trash2,
+  Edit3,
+  Search,
+  Eye,
+  X,
+  ListOrdered,
+  AlertCircle
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 import { formatDA, formatNumberDZ, numberToWordsDZ, ALGERIAN_WILAYAS } from '../utils/dzFormatters';
@@ -45,6 +52,7 @@ interface DevisArticleDef {
   unit: DQEArticle['unit'];
   quantity: number;
   baseCost: number;
+  unitPriceHT?: number;
 }
 
 interface DevisSectionDef {
@@ -657,6 +665,9 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
   const currentMarket = markets.find(m => m.id === selectedMarketId) || markets[0];
 
   const [activeSubTab, setActiveSubTab] = useState<'scanner' | 'bpu-print'>('scanner');
+  const [activeTableMode, setActiveTableMode] = useState<'recap' | 'interactive' | 'tree'>('recap');
+  const [searchArticleQuery, setSearchArticleQuery] = useState<string>('');
+  const [selectedLotFilter, setSelectedLotFilter] = useState<string>('all');
 
   // Scanner State
   const [selectedSampleKey, setSelectedSampleKey] = useState<string>('opgi');
@@ -695,8 +706,101 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
     setExpandedLots(prev => ({ ...prev, [lotCode]: !prev[lotCode] }));
   };
 
-  // State of structured processed lots
-  const [currentQuotationDef, setCurrentQuotationDef] = useState<DevisQuotationDef>(SAMPLE_QUOTATIONS.opgi);
+  // State of structured processed lots (cloné pour modification interactive)
+  const [currentQuotationDef, setCurrentQuotationDef] = useState<DevisQuotationDef>(() => JSON.parse(JSON.stringify(SAMPLE_QUOTATIONS.opgi)));
+
+  // Modification interactive d'un article en temps réel
+  const handleUpdateArticle = (lotCode: string, sectionCode: string, artCode: string, field: keyof DevisArticleDef, value: any) => {
+    setCurrentQuotationDef(prev => {
+      const newLots = prev.lots.map(lot => {
+        if (lot.code !== lotCode) return lot;
+        const newSections = lot.sections.map(sec => {
+          if (sec.code !== sectionCode) return sec;
+          const newArticles = sec.articles.map(art => {
+            if (art.code !== artCode) return art;
+            return {
+              ...art,
+              [field]: field === 'quantity' || field === 'baseCost' || field === 'unitPriceHT' ? Math.max(0, Number(value) || 0) : value
+            };
+          });
+          return { ...sec, articles: newArticles };
+        });
+        return { ...lot, sections: newSections };
+      });
+      return { ...prev, lots: newLots };
+    });
+  };
+
+  // Suppression d'un article
+  const handleDeleteArticle = (lotCode: string, sectionCode: string, artCode: string) => {
+    setCurrentQuotationDef(prev => {
+      const newLots = prev.lots.map(lot => {
+        if (lot.code !== lotCode) return lot;
+        const newSections = lot.sections.map(sec => {
+          if (sec.code !== sectionCode) return sec;
+          return {
+            ...sec,
+            articles: sec.articles.filter(art => art.code !== artCode)
+          };
+        });
+        return { ...lot, sections: newSections };
+      });
+      return { ...prev, lots: newLots };
+    });
+  };
+
+  // Ajout d'un nouvel article dans un sous-lot
+  const handleAddArticle = (lotCode: string, sectionCode: string) => {
+    setCurrentQuotationDef(prev => {
+      const newLots = prev.lots.map(lot => {
+        if (lot.code !== lotCode) return lot;
+        const newSections = lot.sections.map(sec => {
+          if (sec.code !== sectionCode) return sec;
+          const nextIndex = sec.articles.length + 1;
+          const newArt: DevisArticleDef = {
+            code: `${sec.code.replace('Sous-Lot ', '')}.${nextIndex.toString().padStart(2, '0')}`,
+            designation: 'Nouvelle prestation / fourniture et pose conforme au devis',
+            unit: 'm²',
+            quantity: 100,
+            baseCost: 2500,
+            unitPriceHT: 3200
+          };
+          return { ...sec, articles: [...sec.articles, newArt] };
+        });
+        return { ...lot, sections: newSections };
+      });
+      return { ...prev, lots: newLots };
+    });
+  };
+
+  // Ajout d'un nouveau Lot complet
+  const handleAddLot = () => {
+    setCurrentQuotationDef(prev => {
+      const nextLotNum = prev.lots.length + 1;
+      const lotCode = `LOT ${nextLotNum.toString().padStart(2, '0')}`;
+      const newLot: DevisLotDef = {
+        code: lotCode,
+        name: `NOUVEAU CORPS D'ÉTAT ${nextLotNum.toString().padStart(2, '0')}`,
+        sections: [
+          {
+            code: `Sous-Lot ${nextLotNum}.1`,
+            name: 'Travaux & Installations',
+            articles: [
+              {
+                code: `${nextLotNum}.01`,
+                designation: 'Fourniture, transport et pose complète selon devis descriptif',
+                unit: 'U',
+                quantity: 1,
+                baseCost: 50000,
+                unitPriceHT: 65000
+              }
+            ]
+          }
+        ]
+      };
+      return { ...prev, lots: [...prev.lots, newLot] };
+    });
+  };
 
   // Compute processed lots with unit prices in numbers and words, subtotals, and breakdowns
   function computeProcessedLots(
@@ -715,17 +819,33 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
         let secSubtotal = 0;
 
         const processedArticles: ProcessedArticle[] = secDef.articles.map((art, idx) => {
-          const rawCost = art.baseCost * coeff;
-          const mat = Math.round(rawCost * 0.55);
-          const mo = Math.round(rawCost * 0.30);
-          const eq = Math.round(rawCost * 0.15);
-          const ds = mat + mo + eq;
-          const fraisGen = Math.round(ds * (fg / 100));
-          const prixRevient = ds + fraisGen;
-          const marge = Math.round(prixRevient * (margin / 100));
-          const finalPrice = Math.round((prixRevient + marge) / 10) * 10;
-          const totalLineHT = art.quantity * finalPrice;
+          let finalPrice: number;
+          let mat: number;
+          let mo: number;
+          let eq: number;
+          let fraisGen: number;
+          let marge: number;
 
+          if (art.unitPriceHT !== undefined && art.unitPriceHT > 0) {
+            finalPrice = Math.round(art.unitPriceHT);
+            mat = Math.round(finalPrice * 0.50);
+            mo = Math.round(finalPrice * 0.25);
+            eq = Math.round(finalPrice * 0.10);
+            fraisGen = Math.round(finalPrice * 0.08);
+            marge = Math.round(finalPrice * 0.07);
+          } else {
+            const rawCost = art.baseCost * coeff;
+            mat = Math.round(rawCost * 0.55);
+            mo = Math.round(rawCost * 0.30);
+            eq = Math.round(rawCost * 0.15);
+            const ds = mat + mo + eq;
+            fraisGen = Math.round(ds * (fg / 100));
+            const prixRevient = ds + fraisGen;
+            marge = Math.round(prixRevient * (margin / 100));
+            finalPrice = Math.round((prixRevient + marge) / 10) * 10;
+          }
+
+          const totalLineHT = Math.round(art.quantity * finalPrice);
           secSubtotal += totalLineHT;
 
           return {
@@ -796,15 +916,29 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
     marketId: string;
     title: string;
     client: string;
+    bet: string;
     number: string;
+    wilaya: string;
+    commune: string;
+    durationMonths: number;
     totalHT: number;
+    tvaRate: number;
+    totalTVA: number;
     totalTTC: number;
+    totalTTCWords: string;
     lotsCount: number;
     sectionsCount: number;
     articlesCount: number;
     guaranteeModality: GuaranteeModality;
     cautionAmount: number;
     retenueRate: number;
+    lotsSummary: {
+      code: string;
+      name: string;
+      subtotalHT: number;
+      pctOfTotal: number;
+      articlesCount: number;
+    }[];
   } | null>(null);
 
   const [injectSuccess, setInjectSuccess] = useState<boolean>(false);
@@ -813,12 +947,12 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Scan simulation
-  const triggerScanProcess = (quotationKey: string = selectedSampleKey) => {
+  const triggerScanProcess = (quotationKey?: string, customQuotation?: DevisQuotationDef) => {
     setIsScanning(true);
     setScanStep(1);
 
-    const qDef = SAMPLE_QUOTATIONS[quotationKey] || SAMPLE_QUOTATIONS.opgi;
-    setCurrentQuotationDef(qDef);
+    const qDef = customQuotation || (quotationKey ? SAMPLE_QUOTATIONS[quotationKey] : currentQuotationDef) || SAMPLE_QUOTATIONS.opgi;
+    setCurrentQuotationDef(JSON.parse(JSON.stringify(qDef)));
     setExtractedTitle(qDef.title);
     setExtractedNumber(qDef.number);
     setExtractedClient(qDef.client);
@@ -828,13 +962,13 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
     setExtractedDuration(qDef.durationMonths);
     setTvaRate(qDef.tvaRate);
 
-    setTimeout(() => setScanStep(2), 500);
-    setTimeout(() => setScanStep(3), 1000);
-    setTimeout(() => setScanStep(4), 1500);
+    setTimeout(() => setScanStep(2), 400);
+    setTimeout(() => setScanStep(3), 800);
+    setTimeout(() => setScanStep(4), 1200);
     setTimeout(() => {
       setScanStep(5);
       setIsScanning(false);
-    }, 2000);
+    }, 1600);
   };
 
   // Traitement d'un upload personnalisé (PDF / Scan)
@@ -848,32 +982,40 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
         .replace(/[_-]/g, ' ')
         .replace(/\b\w/g, l => l.toUpperCase());
 
-      // On crée dynamiquement une quotation structurée complète avec le nom du fichier
+      const fileNameLower = file.name.toLowerCase();
+      let selectedTemplate = SAMPLE_QUOTATIONS.opgi;
+      let clientName = 'Direction du Logement & Équipements Publics (DLEP)';
+      let marketNum = `2026/${Math.floor(10 + Math.random() * 89)}/AO/SBA`;
+
+      if (fileNameLower.includes('ecole') || fileNameLower.includes('scolaire') || fileNameLower.includes('dep') || fileNameLower.includes('base') || fileNameLower.includes('groupe')) {
+        selectedTemplate = SAMPLE_QUOTATIONS.dep;
+        clientName = 'Direction des Équipements Publics (DEP)';
+        marketNum = `2026/${Math.floor(10 + Math.random() * 89)}/DEP/SBA`;
+      } else if (fileNameLower.includes('vrd') || fileNameLower.includes('oran') || fileNameLower.includes('amenagement') || fileNameLower.includes('route') || fileNameLower.includes('voirie')) {
+        selectedTemplate = SAMPLE_QUOTATIONS.vrd;
+        clientName = 'Direction de l\'Urbanisme et de la Construction (DUC)';
+        marketNum = `2026/${Math.floor(10 + Math.random() * 89)}/DUC/VRD`;
+      }
+
+      // Cloner profondément les lots pour permettre l'édition interactive
+      const clonedLots: DevisLotDef[] = JSON.parse(JSON.stringify(selectedTemplate.lots));
+
       const customDef: DevisQuotationDef = {
-        key: 'custom',
+        key: 'custom-' + Date.now(),
         title: `Projet de Réalisation — ${cleanName}`,
-        source: `Appel d'Offres National N° ${Math.floor(10 + Math.random() * 89)}/2026`,
-        number: `2026/${Math.floor(10 + Math.random() * 89)}/DEP`,
+        source: `Devis Numérisé par OCR • ${file.name} (${(file.size / 1024).toFixed(1)} Ko)`,
+        number: marketNum,
         wilaya: '22',
         commune: 'Sidi Bel Abbès',
-        client: 'Direction des Équipements Publics (DEP)',
+        client: clientName,
         bet: 'BET Architecture & Ingénierie DZ',
-        durationMonths: 14,
-        tvaRate: 9,
-        lots: SAMPLE_QUOTATIONS.dep.lots
+        durationMonths: selectedTemplate.durationMonths || 14,
+        tvaRate: selectedTemplate.tvaRate || 9,
+        lots: clonedLots
       };
 
-      setCurrentQuotationDef(customDef);
-      setExtractedTitle(customDef.title);
-      setExtractedNumber(customDef.number);
-      setExtractedClient(customDef.client);
-      setExtractedWilaya(customDef.wilaya);
-      setExtractedCommune(customDef.commune);
-      setExtractedBet(customDef.bet);
-      setExtractedDuration(customDef.durationMonths);
-      setTvaRate(customDef.tvaRate);
-
-      triggerScanProcess('dep');
+      triggerScanProcess(undefined, customDef);
+      setActiveTableMode('recap');
     }
   };
 
@@ -1000,21 +1142,35 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
     // 3. Activer immédiatement le projet dans tout l'ERP
     setSelectedMarketId(newMarketId);
 
-    // 4. Ouvrir la modale récapitulative
+    // 4. Ouvrir la modale récapitulative : Fiche de Projet Officielle
     setCreatedProjectModal({
       isOpen: true,
       marketId: newMarketId,
       title: newMarket.title,
       client: newMarket.client,
+      bet: newMarket.bet,
       number: newMarket.number,
+      wilaya: newMarket.wilaya,
+      commune: newMarket.commune,
+      durationMonths: newMarket.durationMonths,
       totalHT: totalBpuHT,
+      tvaRate: tvaRate,
+      totalTVA: totalTva,
       totalTTC: totalBpuTTC,
+      totalTTCWords: totalBpuTTCWords,
       lotsCount: createdLotsCount,
       sectionsCount: createdSectionsCount,
       articlesCount: createdArticlesCount,
       guaranteeModality: guaranteeModality,
       cautionAmount: chosenCautionAmount,
-      retenueRate: chosenRetenueRate
+      retenueRate: chosenRetenueRate,
+      lotsSummary: processedLots.map(l => ({
+        code: l.code,
+        name: l.name,
+        subtotalHT: l.subtotalHT,
+        pctOfTotal: l.pctOfTotal,
+        articlesCount: l.sections.reduce((acc, s) => acc + s.articles.length, 0)
+      }))
     });
   };
 
@@ -1538,210 +1694,645 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
             )}
           </div>
 
-          {/* ZONE 3 : TABLEAU RÉCAPITULATIF PAR LOT (SOUS-TOTAL DE CHAQUE LOT) */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-blue-50 text-blue-700">
-                  <Table className="w-4 h-4" />
+          {/* SÉLECTEUR DE MODE DU DEVIS : BORDEREAU RÉCAPITULATIF / TABLEAU INTERACTIF / ARBORESCENCE */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-slate-100 rounded-xl scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setActiveTableMode('recap')}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                  activeTableMode === 'recap' ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Table className="w-4 h-4 text-blue-600" />
+                <span>1. Bordereau Récapitulatif (Sous-Total par Lot)</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-800 font-mono">
+                  {processedLots.length} Lots
                 </span>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Bordereau Récapitulatif : Sous-Total de Chaque Lot
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Synthèse financière contractuelle de l'offre par corps d'état
-                  </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTableMode('interactive')}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                  activeTableMode === 'interactive' ? 'bg-white text-emerald-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Edit3 className="w-4 h-4 text-emerald-600" />
+                <span>2. Tableau Interactif des Articles (Édition Directe)</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-mono">
+                  {allArticles.length} Articles
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTableMode('tree')}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                  activeTableMode === 'tree' ? 'bg-white text-purple-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FolderTree className="w-4 h-4 text-purple-600" />
+                <span>3. Arborescence Corps d'État (Vue DQE)</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCreateProjectProfileFromDevis}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer transform hover:scale-[1.02] shrink-0"
+            >
+              <Sparkles className="w-4 h-4 text-amber-200" />
+              <span>Créer la Nouvelle Fiche de Projet</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* ============================================================== */}
+          {/* MODE 1 : BORDEREAU RÉCAPITULATIF : SOUS-TOTAL DE CHAQUE LOT    */}
+          {/* ============================================================== */}
+          {activeTableMode === 'recap' && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-blue-50 text-blue-700">
+                    <Table className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      Bordereau Récapitulatif : Sous-Total de Chaque Lot
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Synthèse financière et décomposition de l'offre par corps d'état issue de l'analyse OCR
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full font-mono">
+                    {processedLots.length} Lots Détectés
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableMode('interactive')}
+                    className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Modifier les articles</span>
+                  </button>
                 </div>
               </div>
 
-              <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full font-mono">
-                {processedLots.length} Lots Contractuels
-              </span>
-            </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 text-[10px] font-black uppercase text-slate-700 border-b border-slate-200">
+                      <th className="py-3 px-3 w-24">N° du Lot</th>
+                      <th className="py-3 px-3">Désignation du Lot (Corps d'État)</th>
+                      <th className="py-3 px-3 text-center w-24">Sous-Lots</th>
+                      <th className="py-3 px-3 text-center w-24">Articles</th>
+                      <th className="py-3 px-3 text-right w-48">Sous-Total HT de Chaque Lot (DA)</th>
+                      <th className="py-3 px-3 text-right w-36">Part / Poids (%)</th>
+                      <th className="py-3 px-3 text-center w-28">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {processedLots.map(lot => (
+                      <tr key={lot.code} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-3 font-mono font-black text-blue-700">
+                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                            {lot.code}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-bold text-slate-900 text-xs">
+                          {lot.name}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono text-slate-600">
+                          {lot.sections.length}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono text-slate-600">
+                          {lot.sections.reduce((acc, s) => acc + s.articles.length, 0)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-black text-slate-900 text-sm">
+                          {formatDA(lot.subtotalHT)}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden hidden sm:block">
+                              <div 
+                                className="bg-blue-600 h-full rounded-full" 
+                                style={{ width: `${lot.pctOfTotal}%` }} 
+                              />
+                            </div>
+                            <span className="font-mono font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px]">
+                              {lot.pctOfTotal} %
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedLotFilter(lot.code);
+                              setActiveTableMode('interactive');
+                            }}
+                            className="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-700 hover:bg-blue-50 border border-blue-200 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Détails</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-100 text-[10px] font-black uppercase text-slate-700 border-b border-slate-200">
-                    <th className="py-2.5 px-3 w-20">Code Lot</th>
-                    <th className="py-2.5 px-3">Désignation du Lot (Corps d'État)</th>
-                    <th className="py-2.5 px-3 text-center w-24">Sous-Lots</th>
-                    <th className="py-2.5 px-3 text-center w-24">Articles</th>
-                    <th className="py-2.5 px-3 text-right w-44">Sous-Total HT (DA)</th>
-                    <th className="py-2.5 px-3 text-right w-28">Part (%)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {processedLots.map(lot => (
-                    <tr key={lot.code} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-3 font-mono font-black text-blue-700">
-                        {lot.code}
+                    {/* LIGNE SOUS-TOTAL GÉNÉRAL HT */}
+                    <tr className="bg-slate-900 text-white font-black text-sm">
+                      <td colSpan={4} className="py-3.5 px-4 uppercase tracking-wider text-xs">
+                        Montant Total Général de l'Offre HT
                       </td>
-                      <td className="py-3 px-3 font-bold text-slate-900">
-                        {lot.name}
+                      <td className="py-3.5 px-3 text-right font-mono text-base text-amber-300">
+                        {formatDA(totalBpuHT)}
                       </td>
-                      <td className="py-3 px-3 text-center font-mono text-slate-600">
-                        {lot.sections.length}
-                      </td>
-                      <td className="py-3 px-3 text-center font-mono text-slate-600">
-                        {lot.sections.reduce((acc, s) => acc + s.articles.length, 0)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-black text-slate-900 text-sm">
-                        {formatDA(lot.subtotalHT)}
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        <span className="font-mono font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px]">
-                          {lot.pctOfTotal} %
-                        </span>
+                      <td colSpan={2} className="py-3.5 px-3 text-right font-mono text-xs text-slate-300">
+                        100 % (Totalité de l'Offre)
                       </td>
                     </tr>
-                  ))}
-                  <tr className="bg-slate-900 text-white font-black text-sm">
-                    <td colSpan={4} className="py-3.5 px-4 uppercase tracking-wider text-xs">
-                      Total Général de l'Offre HT
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono text-base text-amber-300">
+                  </tbody>
+                </table>
+              </div>
+
+              {/* SYNTHÈSE FINANCIÈRE ET GARANTIE CONTRACTUELLE */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/40 border border-slate-200/80 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Total Général HT
+                    </span>
+                    <strong className="text-base font-black text-slate-900 font-mono block">
                       {formatDA(totalBpuHT)}
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono text-xs">
-                      100 %
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    </strong>
+                    <span className="text-[11px] text-slate-400 block">Base imposable marché</span>
+                  </div>
 
-          {/* ZONE 4 : ARBORESCENCE DÉTAILLÉE : LOT -> SOUS-LOT -> ARTICLES AVEC SOUS-TOTAUX */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <FolderTree className="w-4 h-4 text-blue-600" />
-                Détail Complet du Devis (Articles & Sous-Totaux par Lot)
-              </h3>
-              <span className="text-xs text-slate-500">
-                Rédigé et chiffré par l'IA en chiffres et en toutes lettres
-              </span>
-            </div>
-
-            {processedLots.map(lot => {
-              const isExpanded = expandedLots[lot.code] !== false;
-
-              return (
-                <div key={lot.code} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                  {/* LOT HEADER WITH SUB-TOTAL */}
-                  <div 
-                    onClick={() => toggleLot(lot.code)}
-                    className="bg-slate-900 hover:bg-slate-800 text-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-colors select-none"
-                  >
-                    <div className="flex items-center gap-3">
-                      <button className="text-slate-400 hover:text-white">
-                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                      </button>
-                      <span className="font-mono font-black text-xs px-2.5 py-1 rounded-md bg-blue-600 text-white">
-                        {lot.code}
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        TVA Réglementaire
                       </span>
-                      <div>
-                        <h4 className="font-bold text-sm text-white">{lot.name}</h4>
-                        <span className="text-[11px] text-slate-400">
-                          {lot.sections.length} sous-lots • {lot.sections.reduce((acc, s) => acc + s.articles.length, 0)} articles
-                        </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setTvaRate(9)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            tvaRate === 9 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          9%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTvaRate(19)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            tvaRate === 19 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          19%
+                        </button>
                       </div>
                     </div>
+                    <strong className="text-base font-black text-blue-700 font-mono block">
+                      +{formatDA(totalTva)}
+                    </strong>
+                    <span className="text-[11px] text-slate-400 block">
+                      {tvaRate === 9 ? 'Taux réduit BTP DZ (Logement/Équipement)' : 'Taux normal BTP DZ (19%)'}
+                    </span>
+                  </div>
 
-                    <div className="flex items-center gap-4 self-end sm:self-auto font-mono">
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-                          Sous-Total HT du {lot.code}
-                        </span>
-                        <strong className="text-base font-black text-amber-300">
-                          {formatDA(lot.subtotalHT)}
-                        </strong>
-                      </div>
-                      <span className="text-xs px-2 py-0.5 rounded-md bg-white/10 text-white font-bold">
-                        {lot.pctOfTotal}%
+                  <div className="p-3.5 rounded-xl bg-slate-900 text-white border border-slate-800 shadow-sm space-y-1">
+                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                      Total TTC Arrêté
+                    </span>
+                    <strong className="text-lg font-black text-amber-400 font-mono block">
+                      {formatDA(totalBpuTTC)}
+                    </strong>
+                    <span className="text-[10px] text-slate-300 font-serif italic truncate block">
+                      « {totalBpuTTCWords} »
+                    </span>
+                  </div>
+                </div>
+
+                {/* MODALITÉ DE GARANTIE */}
+                <div className="p-3.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-1.5 rounded-lg bg-amber-50 text-amber-700">
+                      <ShieldCheck className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Garantie Contractuelle (Décret N° 15-247)
                       </span>
+                      <strong className="text-slate-800 font-bold">
+                        {guaranteeModality === 'caution_bonne_execution'
+                          ? `Caution Bancaire de Bonne Exécution (5%) : ${formatDA(totalBpuHT * 0.05)} — ${customBankName}`
+                          : guaranteeModality === 'retenue_garantie'
+                          ? `Retenue de Garantie (5%) : ${formatDA(totalBpuHT * 0.05)} prélevés sur décomptes`
+                          : `Double Garantie (10%) : Caution 5% (${formatDA(totalBpuHT * 0.05)}) + Retenue 5%`}
+                      </strong>
                     </div>
                   </div>
 
-                  {/* SECTIONS & ARTICLES INSIDE THIS LOT */}
-                  {isExpanded && (
-                    <div className="p-4 space-y-4">
-                      {lot.sections.map(section => (
-                        <div key={section.code} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50/20">
-                          {/* SOUS-LOT HEADER */}
-                          <div className="bg-slate-100/90 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-xs">
-                            <span className="font-bold text-slate-800 flex items-center gap-2">
-                              <Layers className="w-3.5 h-3.5 text-blue-600" />
-                              <strong className="font-mono text-blue-800">{section.code} :</strong> {section.name}
+                  <button
+                    type="button"
+                    onClick={handleCreateProjectProfileFromDevis}
+                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black shadow-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                  >
+                    <FolderKanban className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Créer Fiche Projet</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* MODE 2 : TABLEAU INTERACTIF DES ARTICLES (ÉDITION DIRECTE)      */}
+          {/* ============================================================== */}
+          {activeTableMode === 'interactive' && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+                    <Edit3 className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      Tableau Interactif des Articles (Édition Directe)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Modifiez les désignations, quantités, unités et prix unitaires HT avec recalcul instantané des sous-totaux par lot
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddLot}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Ajouter un Lot</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* FILTRES & RECHERCHE DANS LE TABLEAU INTERACTIF */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={searchArticleQuery}
+                    onChange={(e) => setSearchArticleQuery(e.target.value)}
+                    placeholder="Filtrer un article par code ou désignation..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-600">Filtrer par Lot :</span>
+                  <select
+                    value={selectedLotFilter}
+                    onChange={(e) => setSelectedLotFilter(e.target.value)}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                  >
+                    <option value="all">Tous les Lots ({processedLots.length})</option>
+                    {processedLots.map(l => (
+                      <option key={l.code} value={l.code}>{l.code} — {l.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* TABLEAU DES ARTICLES GROUPÉS PAR LOT AVEC ÉDITION DIRECTE */}
+              <div className="space-y-6">
+                {processedLots
+                  .filter(l => selectedLotFilter === 'all' || l.code === selectedLotFilter)
+                  .map(lot => {
+                    const matchingSections = lot.sections.map(sec => ({
+                      ...sec,
+                      articles: sec.articles.filter(art => {
+                        if (!searchArticleQuery.trim()) return true;
+                        const q = searchArticleQuery.toLowerCase();
+                        return art.code.toLowerCase().includes(q) || art.designation.toLowerCase().includes(q);
+                      })
+                    })).filter(sec => sec.articles.length > 0 || !searchArticleQuery.trim());
+
+                    if (matchingSections.length === 0 && searchArticleQuery.trim()) return null;
+
+                    return (
+                      <div key={lot.code} className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                        {/* LOT HEADER WITH DYNAMIC SUB-TOTAL */}
+                        <div className="bg-slate-900 text-white p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="px-2 py-0.5 rounded bg-blue-600 font-mono font-black text-xs text-white">
+                              {lot.code}
                             </span>
-                            <span className="font-mono font-bold text-slate-700 text-[11px]">
-                              Sous-total : {formatDA(section.subtotalHT)}
-                            </span>
+                            <strong className="text-xs sm:text-sm font-bold text-white">
+                              {lot.name}
+                            </strong>
                           </div>
 
-                          {/* ARTICLES TABLE */}
-                          <div className="overflow-x-auto bg-white">
-                            <table className="w-full text-left border-collapse text-xs">
-                              <thead>
-                                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500">
-                                  <th className="py-2.5 px-3 w-16">Code</th>
-                                  <th className="py-2.5 px-3">Désignation Rédigée par l'IA</th>
-                                  <th className="py-2.5 px-2 text-center w-12">U</th>
-                                  <th className="py-2.5 px-3 text-right w-20">Qté</th>
-                                  <th className="py-2.5 px-3 text-right w-32 bg-blue-50/30">P.U Chiffres</th>
-                                  <th className="py-2.5 px-3 bg-amber-50/40 text-amber-950">Prix en Toutes Lettres</th>
-                                  <th className="py-2.5 px-3 text-right w-32 font-bold">Total Ligne HT</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                {section.articles.map(art => (
-                                  <tr key={art.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="py-2.5 px-3 font-mono font-bold text-blue-700">
-                                      {art.code}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-medium text-slate-900 max-w-sm">
-                                      {art.designation}
-                                    </td>
-                                    <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-600 bg-slate-50/50">
-                                      {art.unit}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-700">
-                                      {formatNumberDZ(art.quantity)}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 bg-blue-50/20">
-                                      {formatDA(art.unitPriceHT)}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-serif italic text-amber-950 text-[11px] bg-amber-50/20 uppercase font-semibold">
-                                      « {art.unitPriceWords} »
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900">
-                                      {formatDA(art.totalLineHT)}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-mono font-bold text-slate-300">
+                              Sous-Total HT : <strong className="text-amber-300 text-sm font-black">{formatDA(lot.subtotalHT)}</strong>
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-white">
+                              {lot.pctOfTotal}% de l'offre
+                            </span>
                           </div>
                         </div>
-                      ))}
 
-                      {/* LOT RECAP BAR AT THE END OF THE LOT */}
-                      <div className="bg-slate-100 p-3 rounded-xl flex items-center justify-between text-xs font-mono">
-                        <span className="font-bold text-slate-700 uppercase tracking-wide">
-                          Sous-Total HT Cumulé du {lot.code} ({lot.name}) :
+                        {/* SECTIONS & ARTICLES */}
+                        <div className="p-3 space-y-4 bg-slate-50/40">
+                          {matchingSections.map(sec => (
+                            <div key={sec.code} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                              <div className="p-2.5 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between text-xs">
+                                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                                  <Layers className="w-3.5 h-3.5 text-blue-600" />
+                                  <span className="font-mono text-blue-800">{sec.code} :</span>
+                                  <span>{sec.name}</span>
+                                </span>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[11px] font-mono font-bold text-slate-700">
+                                    Sous-total : {formatDA(sec.subtotalHT)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddArticle(lot.code, sec.code)}
+                                    className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    <span>Ajouter Article</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase text-slate-600">
+                                      <th className="py-2.5 px-3 w-16">Code</th>
+                                      <th className="py-2.5 px-3 min-w-[280px]">Désignation des Prestations (Éditable)</th>
+                                      <th className="py-2.5 px-2 text-center w-20">Unité</th>
+                                      <th className="py-2.5 px-2 text-right w-24">Quantité</th>
+                                      <th className="py-2.5 px-3 text-right w-32">P.U HT (DA)</th>
+                                      <th className="py-2.5 px-3 text-right w-36">Total Ligne HT</th>
+                                      <th className="py-2.5 px-2 text-center w-12">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {sec.articles.map(art => (
+                                      <tr key={art.id} className="hover:bg-blue-50/30 transition-colors">
+                                        <td className="py-2 px-3 font-mono font-bold text-blue-700">
+                                          {art.code}
+                                        </td>
+                                        <td className="py-2 px-3">
+                                          <input
+                                            type="text"
+                                            value={art.designation}
+                                            onChange={(e) => handleUpdateArticle(lot.code, sec.code, art.code, 'designation', e.target.value)}
+                                            className="w-full p-1.5 rounded-lg border border-slate-200 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                          />
+                                        </td>
+                                        <td className="py-2 px-2 text-center">
+                                          <select
+                                            value={art.unit}
+                                            onChange={(e) => handleUpdateArticle(lot.code, sec.code, art.code, 'unit', e.target.value)}
+                                            className="p-1.5 rounded-lg border border-slate-200 text-xs font-mono font-bold text-center bg-white"
+                                          >
+                                            {(['m³', 'm²', 'ml', 'U', 'kg', 'tonne', 'ens', 'f'] as const).map(u => (
+                                              <option key={u} value={u}>{u}</option>
+                                            ))}
+                                          </select>
+                                        </td>
+                                        <td className="py-2 px-2 text-right">
+                                          <input
+                                            type="number"
+                                            step="any"
+                                            value={art.quantity}
+                                            onChange={(e) => handleUpdateArticle(lot.code, sec.code, art.code, 'quantity', e.target.value)}
+                                            className="w-20 p-1.5 rounded-lg border border-slate-200 text-xs font-mono font-bold text-right focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                          />
+                                        </td>
+                                        <td className="py-2 px-3 text-right">
+                                          <input
+                                            type="number"
+                                            step="10"
+                                            value={art.unitPriceHT}
+                                            onChange={(e) => handleUpdateArticle(lot.code, sec.code, art.code, 'unitPriceHT', e.target.value)}
+                                            className="w-28 p-1.5 rounded-lg border border-slate-200 text-xs font-mono font-black text-right text-blue-700 bg-blue-50/20 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                          />
+                                        </td>
+                                        <td className="py-2 px-3 text-right font-mono font-black text-slate-900 text-xs whitespace-nowrap">
+                                          {formatDA(art.totalLineHT)}
+                                        </td>
+                                        <td className="py-2 px-2 text-center">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteArticle(lot.code, sec.code, art.code)}
+                                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                            title="Supprimer cet article"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* LOT FOOTER BAR */}
+                        <div className="bg-slate-100 p-2.5 px-4 flex items-center justify-between text-xs font-mono border-t border-slate-200">
+                          <span className="font-bold text-slate-700">
+                            Sous-Total Cumulé {lot.code} ({lot.name}) :
+                          </span>
+                          <strong className="text-sm font-black text-slate-900">
+                            {formatDA(lot.subtotalHT)}
+                          </strong>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* BARRE DE VALIDATION DIRECTE DU TABLEAU INTERACTIF */}
+              <div className="bg-slate-900 text-white rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
+                <div className="flex items-center gap-6 font-mono text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase">Total Général HT</span>
+                    <strong className="text-base font-black text-white">{formatDA(totalBpuHT)}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase">TVA ({tvaRate}%)</span>
+                    <strong className="text-base font-black text-blue-300">+{formatDA(totalTva)}</strong>
+                  </div>
+                  <div className="pl-4 border-l border-slate-700">
+                    <span className="text-amber-400 block text-[10px] uppercase font-bold">Total TTC</span>
+                    <strong className="text-lg font-black text-amber-400">{formatDA(totalBpuTTC)}</strong>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCreateProjectProfileFromDevis}
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-200" />
+                  <span>Créer la Nouvelle Fiche de Projet</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* MODE 3 : ARBORESCENCE DÉTAILLÉE : LOT -> SOUS-LOT -> ARTICLES   */}
+          {/* ============================================================== */}
+          {activeTableMode === 'tree' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <FolderTree className="w-4 h-4 text-blue-600" />
+                  Détail Complet du Devis (Articles & Sous-Totaux par Lot)
+                </h3>
+                <span className="text-xs text-slate-500">
+                  Rédigé et chiffré par l'IA en chiffres et en toutes lettres
+                </span>
+              </div>
+
+              {processedLots.map(lot => {
+                const isExpanded = expandedLots[lot.code] !== false;
+
+                return (
+                  <div key={lot.code} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    {/* LOT HEADER WITH SUB-TOTAL */}
+                    <div 
+                      onClick={() => toggleLot(lot.code)}
+                      className="bg-slate-900 hover:bg-slate-800 text-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-3">
+                        <button className="text-slate-400 hover:text-white">
+                          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        </button>
+                        <span className="font-mono font-black text-xs px-2.5 py-1 rounded-md bg-blue-600 text-white">
+                          {lot.code}
                         </span>
-                        <strong className="text-sm font-black text-slate-900">
-                          {formatDA(lot.subtotalHT)}
-                        </strong>
+                        <div>
+                          <h4 className="font-bold text-sm text-white">{lot.name}</h4>
+                          <span className="text-[11px] text-slate-400">
+                            {lot.sections.length} sous-lots • {lot.sections.reduce((acc, s) => acc + s.articles.length, 0)} articles
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 self-end sm:self-auto font-mono">
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
+                            Sous-Total HT du {lot.code}
+                          </span>
+                          <strong className="text-base font-black text-amber-300">
+                            {formatDA(lot.subtotalHT)}
+                          </strong>
+                        </div>
+                        <span className="text-xs px-2 py-0.5 rounded-md bg-white/10 text-white font-bold">
+                          {lot.pctOfTotal}%
+                        </span>
                       </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+
+                    {/* SECTIONS & ARTICLES INSIDE THIS LOT */}
+                    {isExpanded && (
+                      <div className="p-4 space-y-4">
+                        {lot.sections.map(section => (
+                          <div key={section.code} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50/20">
+                            {/* SOUS-LOT HEADER */}
+                            <div className="bg-slate-100/90 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-xs">
+                              <span className="font-bold text-slate-800 flex items-center gap-2">
+                                <Layers className="w-3.5 h-3.5 text-blue-600" />
+                                <strong className="font-mono text-blue-800">{section.code} :</strong> {section.name}
+                              </span>
+                              <span className="font-mono font-bold text-slate-700 text-[11px]">
+                                Sous-total : {formatDA(section.subtotalHT)}
+                              </span>
+                            </div>
+
+                            {/* ARTICLES TABLE */}
+                            <div className="overflow-x-auto bg-white">
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead>
+                                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-500">
+                                    <th className="py-2.5 px-3 w-16">Code</th>
+                                    <th className="py-2.5 px-3">Désignation Rédigée par l'IA</th>
+                                    <th className="py-2.5 px-2 text-center w-12">U</th>
+                                    <th className="py-2.5 px-3 text-right w-20">Qté</th>
+                                    <th className="py-2.5 px-3 text-right w-32 bg-blue-50/30">P.U Chiffres</th>
+                                    <th className="py-2.5 px-3 bg-amber-50/40 text-amber-950">Prix en Toutes Lettres</th>
+                                    <th className="py-2.5 px-3 text-right w-32 font-bold">Total Ligne HT</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {section.articles.map(art => (
+                                    <tr key={art.id} className="hover:bg-slate-50 transition-colors">
+                                      <td className="py-2.5 px-3 font-mono font-bold text-blue-700">
+                                        {art.code}
+                                      </td>
+                                      <td className="py-2.5 px-3 font-medium text-slate-900 max-w-sm">
+                                        {art.designation}
+                                      </td>
+                                      <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-600 bg-slate-50/50">
+                                        {art.unit}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-700">
+                                        {formatNumberDZ(art.quantity)}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 bg-blue-50/20">
+                                        {formatDA(art.unitPriceHT)}
+                                      </td>
+                                      <td className="py-2.5 px-3 font-serif italic text-amber-950 text-[11px] bg-amber-50/20 uppercase font-semibold">
+                                        « {art.unitPriceWords} »
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900">
+                                        {formatDA(art.totalLineHT)}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* LOT RECAP BAR AT THE END OF THE LOT */}
+                        <div className="bg-slate-100 p-3 rounded-xl flex items-center justify-between text-xs font-mono">
+                          <span className="font-bold text-slate-700 uppercase tracking-wide">
+                            Sous-Total HT Cumulé du {lot.code} ({lot.name}) :
+                          </span>
+                          <strong className="text-sm font-black text-slate-900">
+                            {formatDA(lot.subtotalHT)}
+                          </strong>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* ZONE 5 : TOTAUX GÉNÉRAUX DU MARCHÉ */}
           <div className="bg-slate-900 text-white rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
@@ -1790,7 +2381,7 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
               className="px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-xs sm:text-sm rounded-2xl shadow-xl flex items-center gap-2 transition-all cursor-pointer hover:scale-105 shrink-0"
             >
               <CheckCircle2 className="w-5 h-5 text-emerald-100" />
-              <span>Injecter comme Nouveau Projet</span>
+              <span>Créer la Nouvelle Fiche de Projet</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -1992,89 +2583,160 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* MODAL DE CÉLÉBRATION : NOUVEAU PROJET CRÉÉ AVEC TOUS SES LOTS */}
+      {/* MODAL OFFICIEL : NOUVELLE FICHE DE PROJET GÉNÉRÉE VIA DEVIS OCR */}
       {createdProjectModal?.isOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white text-center relative">
-              <div className="w-14 h-14 rounded-2xl bg-white/20 text-white flex items-center justify-center mx-auto mb-3 shadow-inner">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col">
+            {/* MODAL HEADER */}
+            <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-slate-900 p-6 text-white text-center relative shrink-0">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 text-white flex items-center justify-center mx-auto mb-2.5 shadow-inner">
                 <CheckCircle2 className="w-8 h-8 text-white" />
               </div>
-              <span className="px-3 py-1 rounded-full bg-white/20 text-emerald-100 text-[11px] font-black uppercase tracking-wider">
-                Nouveau Projet Initialisé par l'IA
+              <span className="px-3 py-1 rounded-full bg-white/20 text-emerald-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Nouvelle Fiche de Projet Validée & Initialisée</span>
               </span>
-              <h3 className="text-lg font-black mt-2">
-                Marché, Lots, Sous-Lots & DQE Configurés avec Succès
+              <h3 className="text-lg sm:text-xl font-black mt-2">
+                Fiche de Projet — Marché N° {createdProjectModal.number}
               </h3>
-              <p className="text-xs text-emerald-100 mt-1">
-                Tous les sous-totaux par lot ont été injectés dans l'ERP
+              <p className="text-xs text-emerald-100 mt-0.5">
+                Générée automatiquement par extraction OCR du devis avec Bordereau Récapitulatif par lot
               </p>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex justify-between items-start gap-2">
+            {/* MODAL CONTENT SCROLLABLE */}
+            <div className="p-6 space-y-5 overflow-y-auto text-xs">
+              {/* FICHE D'IDENTITÉ ADMINISTRATIVE */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex justify-between items-start gap-2 border-b border-slate-200 pb-2.5">
                   <div>
-                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-slate-900 text-white">
-                      {createdProjectModal.number}
+                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-blue-700 text-white">
+                      Marché Public N° {createdProjectModal.number}
                     </span>
-                    <h4 className="font-bold text-sm text-slate-900 mt-1">
+                    <h4 className="font-black text-sm sm:text-base text-slate-900 mt-1">
                       {createdProjectModal.title}
                     </h4>
                   </div>
-                  <span className="text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full text-[10px]">
-                    Projet Actif
+                  <span className="text-emerald-700 font-bold bg-emerald-100 px-2.5 py-1 rounded-full text-[11px] shrink-0 inline-flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Projet Actif</span>
                   </span>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200 grid grid-cols-2 sm:grid-cols-3 gap-2 text-slate-600">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-slate-600">
                   <div>
-                    <span className="text-[10px] text-slate-400 block">Lots Créés</span>
-                    <strong className="text-blue-700 font-mono">{createdProjectModal.lotsCount} Lots</strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">Sous-Lots (Sections)</span>
-                    <strong className="text-indigo-700 font-mono">{createdProjectModal.sectionsCount} Chapitres</strong>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Maître d'Ouvrage (Client)</span>
+                    <strong className="text-slate-900 block truncate">{createdProjectModal.client}</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block">Articles DQE</span>
-                    <strong className="text-emerald-700 font-mono">{createdProjectModal.articlesCount} Articles</strong>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Bureau d'Études (BET)</span>
+                    <strong className="text-slate-900 block truncate">{createdProjectModal.bet}</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block">Montant Initial HT</span>
-                    <strong className="text-slate-900 font-mono">{formatDA(createdProjectModal.totalHT)}</strong>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Wilaya & Commune</span>
+                    <strong className="text-slate-900 block">{createdProjectModal.commune} ({getWilayaName(createdProjectModal.wilaya)})</strong>
                   </div>
-                  <div className="sm:col-span-2">
-                    <span className="text-[10px] text-slate-400 block">Montant Total TTC ({tvaRate}%)</span>
-                    <strong className="text-emerald-700 font-mono font-black">{formatDA(createdProjectModal.totalTTC)}</strong>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Délais d'Exécution ODS</span>
+                    <strong className="text-slate-900 block font-mono">{createdProjectModal.durationMonths} Mois</strong>
                   </div>
-                  <div className="sm:col-span-3 pt-2 border-t border-slate-200">
-                    <span className="text-[10px] text-slate-400 block">Modalité de Garantie Financière Choisi</span>
-                    <strong className="text-slate-800 flex items-center gap-1.5 mt-0.5">
+                </div>
+              </div>
+
+              {/* SYNTHÈSE FINANCIÈRE & GARANTIE */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Montant Total HT</span>
+                  <strong className="text-base font-black text-slate-900 font-mono block mt-0.5">
+                    {formatDA(createdProjectModal.totalHT)}
+                  </strong>
+                  <span className="text-[10px] text-slate-500">Base DQE des {createdProjectModal.lotsCount} lots</span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">TVA ({createdProjectModal.tvaRate}%)</span>
+                  <strong className="text-base font-black text-blue-700 font-mono block mt-0.5">
+                    +{formatDA(createdProjectModal.totalTVA)}
+                  </strong>
+                  <span className="text-[10px] text-slate-500">Taxe sur la valeur ajoutée</span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-900 text-white shadow-xs">
+                  <span className="text-[10px] text-amber-400 uppercase font-bold block">Montant Total TTC Arrêté</span>
+                  <strong className="text-base font-black text-amber-400 font-mono block mt-0.5">
+                    {formatDA(createdProjectModal.totalTTC)}
+                  </strong>
+                  <span className="text-[10px] text-slate-300 font-serif italic truncate block">
+                    « {createdProjectModal.totalTTCWords} »
+                  </span>
+                </div>
+              </div>
+
+              {/* MODALITÉ DE GARANTIE */}
+              <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
+                    <ShieldCheck className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Garantie Contractuelle Définie</span>
+                    <strong className="text-slate-800">
                       {createdProjectModal.guaranteeModality === 'caution_bonne_execution' ? (
-                        <>
-                          <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                          <span>Caution Bancaire (5%) : {formatDA(createdProjectModal.cautionAmount)} ({customBankName}) • Retenue 0% sur décomptes</span>
-                        </>
+                        <span>Caution Bancaire (5%) : {formatDA(createdProjectModal.cautionAmount)} ({customBankName}) • Retenue 0% sur décomptes</span>
                       ) : createdProjectModal.guaranteeModality === 'retenue_garantie' ? (
-                        <>
-                          <Scale className="w-4 h-4 text-amber-600 shrink-0" />
-                          <span>Retenue de Garantie (5%) : Prélèvement sur situations mensuelles (consigné au Trésor)</span>
-                        </>
-                      ) : createdProjectModal.guaranteeModality === 'both' ? (
-                        <>
-                          <Building2 className="w-4 h-4 text-indigo-600 shrink-0" />
-                          <span>Double Garantie : Caution 5% ({formatDA(createdProjectModal.cautionAmount)}) + Retenue 5%</span>
-                        </>
+                        <span>Retenue de Garantie (5%) : Prélèvement sur situations mensuelles (consigné au Trésor)</span>
                       ) : (
-                        <span>Sans retenue ni caution (0%)</span>
+                        <span>Double Garantie (10%) : Caution 5% ({formatDA(createdProjectModal.cautionAmount)}) + Retenue 5%</span>
                       )}
                     </strong>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* BORDEREAU RÉCAPITULATIF CONTRACTUEL DES LOTS */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-xs uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                    <Table className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Bordereau Récapitulatif Contractuel des Lots ({createdProjectModal.lotsSummary.length} Lots)</span>
+                  </h4>
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {createdProjectModal.articlesCount} Articles au total
+                  </span>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 text-[10px] font-black uppercase text-slate-600 border-b border-slate-200">
+                        <th className="py-2 px-3 w-20">Code</th>
+                        <th className="py-2 px-3">Corps d'État (Lot)</th>
+                        <th className="py-2 px-3 text-center w-20">Articles</th>
+                        <th className="py-2 px-3 text-right w-36">Sous-Total HT (DA)</th>
+                        <th className="py-2 px-3 text-right w-24">Part (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {createdProjectModal.lotsSummary.map(ls => (
+                        <tr key={ls.code} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-mono font-bold text-blue-700">{ls.code}</td>
+                          <td className="py-2 px-3 font-medium text-slate-800">{ls.name}</td>
+                          <td className="py-2 px-3 text-center font-mono text-slate-500">{ls.articlesCount}</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">{formatDA(ls.subtotalHT)}</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-blue-800">{ls.pctOfTotal}%</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-slate-900 text-white font-black">
+                        <td colSpan={3} className="py-2.5 px-3 uppercase text-[10px]">Total Général de l'Offre HT</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-amber-300">{formatDA(createdProjectModal.totalHT)}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-xs">100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ACTION BUTTONS DIRECT ACCESS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
                 <button
                   type="button"
@@ -2121,7 +2783,7 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
                   className="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
                   <HardHat className="w-4 h-4 text-amber-500" />
-                  <span>Voir la Fiche Chantier</span>
+                  <span>Voir la Fiche Chantier Terrain</span>
                 </button>
               </div>
             </div>
