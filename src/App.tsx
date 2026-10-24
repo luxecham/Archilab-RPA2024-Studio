@@ -3,6 +3,7 @@ import { BTPProvider, useBTP } from './context/BTPContext';
 import { Sidebar, ActiveTab } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './views/DashboardView';
+import { ProjectsView } from './views/ProjectsView';
 import { MarketsView } from './views/MarketsView';
 import { ChantiersView } from './views/ChantiersView';
 import { AttachementsView } from './views/AttachementsView';
@@ -38,6 +39,7 @@ const MainLayout: React.FC = () => {
         {/* View Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {activeTab === 'dashboard' && <DashboardView onNavigate={setActiveTab} />}
+          {activeTab === 'projects' && <ProjectsView onNavigate={setActiveTab} />}
           {activeTab === 'markets' && <MarketsView />}
           {activeTab === 'chantiers' && <ChantiersView onNavigate={setActiveTab} />}
           {activeTab === 'attachements' && <AttachementsView onNavigate={setActiveTab} />}

@@ -26,7 +26,8 @@ import {
   Table,
   ShieldCheck,
   Scale,
-  ShieldAlert
+  ShieldAlert,
+  FolderKanban
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 import { formatDA, formatNumberDZ, numberToWordsDZ, ALGERIAN_WILAYAS } from '../utils/dzFormatters';
@@ -1768,6 +1769,31 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
               </div>
             </div>
           </div>
+
+          {/* BANDEAU D'INJECTION DU PROJET AVEC TOUS LES ARTICLES DANS ARCHILAB MANAGER */}
+          <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 p-6 rounded-3xl text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 border border-blue-800/60">
+            <div>
+              <span className="text-xs font-bold text-amber-300 uppercase tracking-widest flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                Devis & Cahier des Charges Analysé avec Succès
+              </span>
+              <h3 className="text-base sm:text-lg font-black text-white mt-1">
+                Injecter ce Devis ({processedLots.length} Lots • {processedLots.reduce((acc, l) => acc + l.sections.reduce((a, s) => a + s.articles.length, 0), 0)} Articles) comme Nouveau Projet
+              </h3>
+              <p className="text-xs text-blue-200 mt-0.5">
+                Crée instantanément le marché dans l'ERP avec tous ses lots, sous-lots, articles et sous-totaux chiffrés.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCreateProjectProfileFromDevis}
+              className="px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-xs sm:text-sm rounded-2xl shadow-xl flex items-center gap-2 transition-all cursor-pointer hover:scale-105 shrink-0"
+            >
+              <CheckCircle2 className="w-5 h-5 text-emerald-100" />
+              <span>Injecter comme Nouveau Projet</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -2054,6 +2080,18 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
                   type="button"
                   onClick={() => {
                     setCreatedProjectModal(null);
+                    if (onNavigate) onNavigate('projects');
+                  }}
+                  className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <FolderKanban className="w-4 h-4" />
+                  <span>Gérer dans l'onglet Projets</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedProjectModal(null);
                     if (onNavigate) onNavigate('markets');
                   }}
                   className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
@@ -2068,7 +2106,7 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
                     setCreatedProjectModal(null);
                     if (onNavigate) onNavigate('dashboard');
                   }}
-                  className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
                   <Building2 className="w-4 h-4" />
                   <span>Voir le Tableau de Bord</span>
@@ -2084,18 +2122,6 @@ export const IAMetreurView: React.FC<IAMetreurViewProps> = ({ onNavigate }) => {
                 >
                   <HardHat className="w-4 h-4 text-amber-500" />
                   <span>Voir la Fiche Chantier</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatedProjectModal(null);
-                    setActiveSubTab('bpu-print');
-                  }}
-                  className="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-                >
-                  <Printer className="w-4 h-4 text-blue-600" />
-                  <span>Imprimer le BPU par Lots</span>
                 </button>
               </div>
             </div>

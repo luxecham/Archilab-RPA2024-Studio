@@ -12,12 +12,14 @@ import {
   Users, 
   Sparkles,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  FolderKanban
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 
 export type ActiveTab = 
   | 'dashboard'
+  | 'projects'
   | 'markets'
   | 'chantiers'
   | 'attachements'
@@ -51,6 +53,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
       labelAr: 'لوحة القيادة',
       icon: Building2,
       badge: null
+    },
+    {
+      id: 'projects',
+      label: 'Projets',
+      labelAr: 'المشاريع',
+      icon: FolderKanban,
+      badge: `${markets.filter(m => m.status !== 'Archivé').length}`
     },
     {
       id: 'markets',

@@ -32,6 +32,7 @@ interface TesterFeedbackWidgetProps {
 
 const MODULE_NAMES: Record<ActiveTab, string> = {
   'dashboard': 'Tableau de bord',
+  'projects': 'Projets (Gestion & Contrôle)',
   'markets': 'Marchés & DQE',
   'chantiers': 'Chantiers & Équipes',
   'attachements': 'Attachements & Métrés',

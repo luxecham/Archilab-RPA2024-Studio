@@ -96,10 +96,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     setTimeout(() => setActionNotice(null), 4000);
   };
 
-  const currentMarket = markets.find(m => m.id === selectedMarketId) || markets[0];
-
-  // Calculs financiers globaux (uniquement sur les marchés non-archivés par défaut pour la comptabilité active)
+  // Calculs financiers globaux : UNIQUEMENT sur les marchés actifs non-archivés (les projets archivés sont réceptionnés et sortent du tableau de bord)
   const activeMarkets = markets.filter(m => m.status !== 'Archivé');
+  const currentMarket = activeMarkets.find(m => m.id === selectedMarketId) || activeMarkets[0];
   const totalMarketsAmount = activeMarkets.reduce((acc, m) => acc + m.currentAmountHT, 0);
   const totalBilledHT = situations.reduce((acc, s) => acc + s.grossAmountCurrentHT, 0);
   const totalNetPaidTTC = situations.reduce((acc, s) => acc + s.netToPayTTC, 0);
@@ -119,11 +118,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     ? Math.round((marketExecutedAmount / currentMarket.currentAmountHT) * 100) 
     : 0;
 
-  // Liste unique des Maîtres d'Ouvrage
-  const distinctClients = Array.from(new Set(markets.map(m => m.client.trim())));
+  // Liste unique des Maîtres d'Ouvrage (uniquement des marchés actifs du tableau de bord)
+  const distinctClients = Array.from(new Set(activeMarkets.map(m => m.client.trim())));
 
-  // Filtrage des marchés avec Statut (Actifs / Archivés / Tous)
-  const filteredMarkets = markets.filter(m => {
+  // Filtrage des marchés actifs : les projets archivés (réceptionnés) ne figurent plus dans le tableau de bord
+  const filteredMarkets = activeMarkets.filter(m => {
     const matchesSearch = 
       m.title.toLowerCase().includes(projectSearch.toLowerCase()) ||
       m.number.toLowerCase().includes(projectSearch.toLowerCase()) ||
@@ -132,12 +131,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
     const matchesClient = selectedClientFilter === 'all' || m.client.trim() === selectedClientFilter.trim();
 
-    const matchesStatus = 
-      statusFilter === 'all' ? true :
-      statusFilter === 'active' ? m.status !== 'Archivé' :
-      m.status === 'Archivé';
-
-    return matchesSearch && matchesClient && matchesStatus;
+    return matchesSearch && matchesClient;
   });
 
   // Groupement des marchés par Maître d'Ouvrage
@@ -161,7 +155,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       triggerNotice(`Projet « ${market.title} » restauré avec succès.`);
     } else {
       archiveMarket(market.id);
-      triggerNotice(`Projet « ${market.title} » archivé.`);
+      const remainingActive = activeMarkets.filter(m => m.id !== market.id);
+      if (remainingActive.length > 0) {
+        setSelectedMarketId(remainingActive[0].id);
+      }
+      triggerNotice(`Projet « ${market.title} » réceptionné & archivé : il ne figure plus dans le tableau de bord (consultable dans l'onglet Projets).`);
     }
   };
 
@@ -607,55 +605,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <div>
             <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
               <FolderKanban className="w-4 h-4 text-blue-600" />
-              Portefeuille des Projets classé par Maître d'Ouvrage
+              Portefeuille des Projets Actifs ({activeCount})
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Sélectionnez, archivez ou supprimez vos projets en toute simplicité
+              Chantiers et marchés en cours de réalisation (les projets réceptionnés & archivés sont classés dans l'onglet Projets)
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Status Filter Toggle */}
-            <div className="bg-slate-100 p-0.5 rounded-xl flex items-center text-xs font-bold">
+            {/* Archived projects navigation shortcut */}
+            {archivedCount > 0 && (
               <button
-                onClick={() => setStatusFilter('active')}
-                className={`px-3 py-1 rounded-lg transition-all ${
-                  statusFilter === 'active' 
-                    ? 'bg-white text-blue-700 shadow-xs font-black' 
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Actifs ({activeCount})
-              </button>
-              <button
-                onClick={() => setStatusFilter('archived')}
-                className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1 ${
-                  statusFilter === 'archived' 
-                    ? 'bg-white text-amber-800 shadow-xs font-black' 
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                onClick={() => onNavigate('projects')}
+                className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Consulter les projets réceptionnés et archivés dans l'onglet Projets"
               >
                 <Archive className="w-3.5 h-3.5 text-amber-600" />
-                <span>Archives ({archivedCount})</span>
+                <span>{archivedCount} Réceptionné(s) / Archivé(s)</span>
+                <span className="text-[10px] bg-amber-200/80 px-1.5 py-0.5 rounded-md font-bold text-amber-950">Onglet Projets →</span>
               </button>
-              <button
-                onClick={() => setStatusFilter('all')}
-                className={`px-3 py-1 rounded-lg transition-all ${
-                  statusFilter === 'all' 
-                    ? 'bg-white text-slate-900 shadow-xs font-black' 
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Tous ({markets.length})
-              </button>
-            </div>
+            )}
 
             {/* Quick Search */}
             <div className="relative w-full sm:w-56">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Rechercher par titre, N°..."
+                placeholder="Rechercher projet actif..."
                 value={projectSearch}
                 onChange={(e) => setProjectSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
