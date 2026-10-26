@@ -83,7 +83,7 @@ data class SpectrumOutput(
 
 data class ColumnOutput(
     val concreteAreaCm2: Double = 2025.0,
-    val reducedAxialStressNu: Double = 0.292, // Ned / (B * fc28) <= 0.30
+    val reducedAxialStressNu: Double = 0.292, // Ned / (B * fc28) <= 0.35
     val isNuValid: Boolean = true,
     val minAsRpaCm2: Double = 16.20, // 0.8% * B
     val calculatedAsCm2: Double = 17.50,

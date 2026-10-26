@@ -71,9 +71,14 @@ class ProjectStateManager(
         val colArea = input.columnWidthBCm * input.columnHeightHCm
         // nu = Ned / (B * fc28) avec Ned en kN, B en cm2 -> 1 kN / cm2 = 10 MPa
         val nu = (input.columnNedKN * 10.0) / (colArea * input.columnFc28MPa)
-        val isNuValid = nu <= 0.30
+        val isNuValid = nu <= 0.35
 
-        val minAsRpa = (0.80 / 100.0) * colArea // 0.8% en zone III
+        val minRatio = when (input.seismicZone) {
+            SeismicZone.ZONE_0, SeismicZone.ZONE_I, SeismicZone.ZONE_II -> 0.008
+            SeismicZone.ZONE_III -> 0.009
+            SeismicZone.ZONE_IV, SeismicZone.ZONE_V, SeismicZone.ZONE_VI -> 0.010
+        }
+        val minAsRpa = minRatio * colArea
         val fbu = 0.85 * input.columnFc28MPa / 1.50
         val fe = input.columnFeMPa
         val fsu = fe / 1.15
