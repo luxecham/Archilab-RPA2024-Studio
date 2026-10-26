@@ -469,9 +469,9 @@ private fun LowerCtcDashboard(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)
         ) {
             // Badges de conformité CTC en temps réel
-            ComplianceBadge(label = "Poteau \u03bd \u2264 0.30", isOk = state.columnOutput.isNuValid, value = String.format(Locale.US, "%.3f", state.columnOutput.reducedAxialStressNu))
+            ComplianceBadge(label = "Poteau ν ≤ 0.35", isOk = state.columnOutput.isNuValid, value = String.format(Locale.US, "%.3f", state.columnOutput.reducedAxialStressNu))
             Spacer(modifier = Modifier.width(10.dp))
-            ComplianceBadge(label = "Poteau \u03c1 \u2265 0.8%", isOk = state.columnOutput.isAsConforme, value = String.format(Locale.US, "%.2f%%", state.columnOutput.rebarRatioPercent))
+            ComplianceBadge(label = "Poteau ρ ≥ minimum RPA", isOk = state.columnOutput.isAsConforme, value = String.format(Locale.US, "%.2f%%", state.columnOutput.rebarRatioPercent))
             Spacer(modifier = Modifier.width(10.dp))
             ComplianceBadge(label = "Poutre BaelR", isOk = state.beamOutput.isBeamConforme, value = state.beamOutput.selectedRebarTravee.substringBefore("("))
             Spacer(modifier = Modifier.width(10.dp))
