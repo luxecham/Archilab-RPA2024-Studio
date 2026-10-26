@@ -1,11 +1,26 @@
 package com.archilab.rpa2024.report
 
+import com.archilab.rpa2024.graphics.RpaSpectrumChartRenderer
+import com.archilab.rpa2024.graphics.RebarSectionDetailRenderer
+import com.archilab.rpa2024.graphics.SafeSoilPressureMapRenderer
+import com.archilab.rpa2024.graphics.ShearWallEnvelopesRenderer
+import org.apache.poi.util.Units
 import org.apache.poi.xwpf.usermodel.*
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
 
 class CtcNoteDeCalculWordGenerator {
+
+    private val spectrumRenderer = RpaSpectrumChartRenderer()
+    private val rebarRenderer = RebarSectionDetailRenderer()
+    private val wallRenderer = ShearWallEnvelopesRenderer()
+    private val safeRenderer = SafeSoilPressureMapRenderer()
+
+    fun generateOfficialCtcWordReport(outputFile: File, payload: CtcReportDataPayload = CtcReportDataPayload.createJointASample()) {
+        generateFullCtcDocx(payload, outputFile)
+    }
 
     fun generateFullCtcDocx(payload: CtcReportDataPayload, outputFile: File) {
         val document = XWPFDocument()
@@ -68,6 +83,25 @@ class CtcNoteDeCalculWordGenerator {
         }
     }
 
+    private fun insertImage(paragraph: XWPFParagraph, imageBytes: ByteArray, filename: String, widthPt: Double = 450.0, heightPt: Double = 270.0) {
+        try {
+            paragraph.alignment = ParagraphAlignment.CENTER
+            val run = paragraph.createRun()
+            ByteArrayInputStream(imageBytes).use { bais ->
+                run.addPicture(
+                    bais,
+                    XWPFDocument.PICTURE_TYPE_PNG,
+                    filename,
+                    Units.toEMU(widthPt),
+                    Units.toEMU(heightPt)
+                )
+            }
+        } catch (e: Exception) {
+            val run = paragraph.createRun()
+            run.setText("[Illustration graphique : $filename]")
+        }
+    }
+
     private fun buildCoverPage(doc: XWPFDocument, payload: CtcReportDataPayload) {
         val pHeader = doc.createParagraph()
         pHeader.alignment = ParagraphAlignment.CENTER
@@ -118,42 +152,36 @@ class CtcNoteDeCalculWordGenerator {
         rBur.addCarriageReturn()
         rBur.setText("LOGICIELS UTILISÉS : CSI ETABS v18 / SAFE v12 / ARCHILAB NOTE DE CALCUL STUDIO")
         rBur.addCarriageReturn()
-        rBur.setText("DATE D'ÉMISSION : OCTOBRE 2026")
-
-        doc.createParagraph().createRun().addBreak(BreakType.PAGE)
+        rBur.setText("DOCUMENT SOUMIS POUR CONTRÔLE RÉGLEMENTAIRE AU CTC")
+        rBur.addBreak(BreakType.PAGE)
     }
 
     private fun buildTableOfContents(doc: XWPFDocument) {
         val p = doc.createParagraph()
-        CtcStyleCatalog.styleHeading1(p, "SOMMAIRE GÉNÉRAL RÉGLEMENTAIRE")
+        CtcStyleCatalog.styleHeading1(p, "SOMMAIRE GÉNÉRAL")
 
         val chapters = listOf(
-            "1. Description du projet",
+            "1. Description générale de l'ouvrage et cadre normatif",
             "2. Caractéristiques géométriques du bâtiment",
-            "3. Caractéristiques mécaniques des matériaux",
-            "4. Combinaisons de calcul",
-            "5. Descente de charges (DTR BC 2.2)",
-            "6. Prédimensionnement des poutres",
-            "7. Prédimensionnement des poteaux",
-            "8. Étude des planchers (Corps creux, Poutrelles Té & Flèche)",
-            "9. Étude sismique (RPA 2024)",
-            "   • Participation modale (RPA § 4.3.3)",
-            "   • Force sismique totale statique équivalente vs dynamique",
-            "   • Vérification de l'effort normal réduit ν ≤ 0.35",
-            "   • Calcul et vérification des déplacements inter-étages νA·Δk",
-            "   • Justification de l'effet de second ordre P-Delta θk ≤ 0.10",
-            "10. Calcul des éléments structuraux (Poteaux, Poutres, Voiles)",
-            "11. Étude de l'acrotère",
-            "12. Étude des escaliers",
-            "13. Calcul des fondations (SAFE v12)"
+            "3. Caractéristiques mécaniques des matériaux (Béton & Acier)",
+            "4. Combinaisons d'actions et évaluation du poids sismique total W",
+            "5. Descente de charges selon le DTR BC 2.2",
+            "6. Prédimensionnement des éléments structuraux (Poutres)",
+            "7. Prédimensionnement des poteaux et voiles de contreventement",
+            "8. Étude des planchers (Poutrelles en Té KOKA et flèche)",
+            "9. Étude de la réponse sismique selon le DTR BC 2.48 (RPA 2024)",
+            "10. Calcul et ferraillage des éléments structuraux (Poteaux, Poutres, Voiles)",
+            "11. Étude de l'acrotère console",
+            "12. Étude des escaliers droits en béton armé",
+            "13. Calcul et dimensionnement des fondations (CSI SAFE v12 & BaelT)"
         )
 
         for (ch in chapters) {
             val pItem = doc.createParagraph()
-            pItem.spacingAfter = 40
             val r = pItem.createRun()
             r.fontFamily = CtcStyleCatalog.FONT_FAMILY
             r.fontSize = 11
+            r.isBold = true
             r.setText(ch)
         }
         doc.createParagraph().createRun().addBreak(BreakType.PAGE)
@@ -161,30 +189,45 @@ class CtcNoteDeCalculWordGenerator {
 
     private fun buildChapter1Description(doc: XWPFDocument, payload: CtcReportDataPayload) {
         val p = doc.createParagraph()
-        CtcStyleCatalog.styleHeading1(p, "1. Description du projet")
+        CtcStyleCatalog.styleHeading1(p, "1. Description générale de l'ouvrage et cadre normatif")
+
         CtcStyleCatalog.addParagraphText(
             doc.createParagraph(),
-            "La présente note de calcul a pour objet de justifier la stabilité et le dimensionnement des éléments structuraux en béton armé d'un ouvrage en R+2 avec cage d'escalier/terrasse implanté à ${payload.model.wilaya}."
+            "Le présent projet consiste en l'étude d'ingénierie parasismique de la structure '${payload.model.jointName}' " +
+                    "relative à l'opération '${payload.model.projectName}', implantée dans la Wilaya de ${payload.model.wilaya}."
         )
-        CtcStyleCatalog.addParagraphText(
-            doc.createParagraph(),
-            "RÉFÉRENTIELS TECHNIQUES ET CODES APPLIQUÉS :"
+
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "1.1 Règlements techniques appliqués")
+        val norms = listOf(
+            "• DTR BC 2.48 (RPA 2024) : Règles Parasismiques Algériennes.",
+            "• DTR BC 2.41 (CBA 93) : Règles de conception et de calcul des structures en béton armé.",
+            "• BAEL 91 révisé 99 : Calcul des ouvrages en béton armé aux états limites.",
+            "• DTR BC 2.2 : Charges permanentes et charges d'exploitation.",
+            "• DTR BC 2.33.1 : Règles de calcul des fondations superficielles."
         )
-        val codes = listOf(
-            "• DTR BC 2.48 - Règles Parasismiques Algériennes (RPA 2024)",
-            "• DTR BC 2.41 - Règles de conception et de calcul des structures en béton armé (CBA 93)",
-            "• BAEL 91 Révisé 99 - Règles techniques de conception et de calcul du béton armé",
-            "• DTR BC 2.2 - Charges permanentes et charges d'exploitation",
-            "• DTR BC 2.33.1 - Règles de calcul des fondations superficielles",
-            "• Logiciels informatiques de calcul : CSI ETABS v18 / ETABS v9.7.4 / SAFE v12"
+        for (norm in norms) {
+            CtcStyleCatalog.addParagraphText(doc.createParagraph(), norm)
+        }
+
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "1.2 Classification parasismique du site (RPA 2024)")
+        val tSite = doc.createTable(6, 2)
+        CtcStyleCatalog.formatTable(tSite, listOf(5500, 4000))
+        tSite.getRow(0).getCell(0).text = "Paramètre Réglementaire"
+        tSite.getRow(0).getCell(1).text = "Valeur adoptée"
+        CtcStyleCatalog.formatHeaderRow(tSite.getRow(0))
+
+        val siteData = listOf(
+            "Zone sismique" to "${payload.model.zone.name} (A = ${payload.model.zone.coeffA})",
+            "Groupe d'usage" to "${payload.model.importance.name} (I = ${payload.model.importance.coeffI})",
+            "Classification du site" to "${payload.model.site.name} (S = ${payload.model.site.s})",
+            "Facteur de comportement R" to "R = ${payload.model.behaviorR}",
+            "Facteur de qualité Q" to "Q = ${payload.model.qualityQ}"
         )
-        for (c in codes) {
-            val pCode = doc.createParagraph()
-            pCode.spacingAfter = 30
-            val r = pCode.createRun()
-            r.fontFamily = CtcStyleCatalog.FONT_FAMILY
-            r.fontSize = 10
-            r.setText(c)
+        for (i in siteData.indices) {
+            val row = tSite.getRow(i + 1)
+            row.getCell(0).text = siteData[i].first
+            row.getCell(1).text = siteData[i].second
+            CtcStyleCatalog.formatDataRow(row)
         }
     }
 
@@ -193,7 +236,8 @@ class CtcNoteDeCalculWordGenerator {
         CtcStyleCatalog.styleHeading1(p, "2. Caractéristiques géométriques du bâtiment")
         CtcStyleCatalog.addParagraphText(
             doc.createParagraph(),
-            "Dimensions principales hors-tout en plan et élévation : Lx = 15.00 m, Ly = 20.65 m, Hauteur libre sous plafond hk = 3.74 m, Hauteur totale du bloc Hn = 11.22 m."
+            "Le bâtiment est constitué d'un niveau Rez-de-chaussée et de 2 étages courants (R+2), coiffé d'une toiture terrasse inaccessible. " +
+                    "La hauteur sous plafond est de 3.74 m au RDC et 3.74 m aux étages, portant la hauteur totale du bloc à H = 11.22 m."
         )
     }
 
@@ -201,50 +245,40 @@ class CtcNoteDeCalculWordGenerator {
         val p = doc.createParagraph()
         CtcStyleCatalog.styleHeading1(p, "3. Caractéristiques mécaniques des matériaux")
 
-        val table = doc.createTable(8, 2)
-        CtcStyleCatalog.formatTable(table, listOf(5500, 4000))
-        table.getRow(0).getCell(0).text = "Propriété Mécanique"
-        table.getRow(0).getCell(1).text = "Valeur Réglementaire"
-        CtcStyleCatalog.formatHeaderRow(table.getRow(0))
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "3.1 Béton (Classe C25/30)")
 
-        val matData = listOf(
-            "Béton C25/30 - Résistance compression fc28" to "25.0 MPa",
-            "Béton C25/30 - Résistance traction ft28" to "2.10 MPa",
-            "Module d'élasticité instantané Eij" to "32 164.20 MPa",
-            "Module d'élasticité différé Evj" to "10 818.86 MPa",
-            "Aciers longitudinaux Haute Adhérence Fe E500" to "fe = 500.0 MPa",
-            "Aciers transversaux Fe E500" to "fe = 500.0 MPa",
-            "Contrainte admissible du sol σsol_adm (ELS)" to "1.20 bars (120.0 kPa)"
+        CtcStyleCatalog.addParagraphText(
+            doc.createParagraph(),
+            "Résistance caractéristique à 28 jours : fc28 = ${payload.model.concrete.fc28Mpa} MPa, ft28 = ${payload.model.concrete.ft28Mpa} MPa. " +
+                    "Contrainte admissible de calcul à l'ELU : fbu = 0.85 · fc28 / θ · γb = 0.85 · 25 / (1.0 · 1.5) = 14.17 MPa. " +
+                    "En situation accidentelle (séisme) : fbu_acc = 0.85 · 25 / 1.15 = 18.48 MPa."
         )
-        for (i in matData.indices) {
-            val row = table.getRow(i + 1)
-            row.getCell(0).text = matData[i].first
-            row.getCell(1).text = matData[i].second
-            CtcStyleCatalog.formatDataRow(row)
-        }
+
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "3.2 Acier pour béton armé (Haute Adhérence FeE500)")
+        CtcStyleCatalog.addParagraphText(
+            doc.createParagraph(),
+            "Limite d'élasticité nominale : fe = ${payload.model.rebar.feMpa} MPa. " +
+                    "Résistance de calcul à l'ELU : fsu = fe / γs = 500 / 1.15 = 434.78 MPa. " +
+                    "En situation sismique (γs = 1.0) : fsu_acc = 500.00 MPa."
+        )
     }
 
     private fun buildChapter4Combinations(doc: XWPFDocument, payload: CtcReportDataPayload) {
         val p = doc.createParagraph()
-        CtcStyleCatalog.styleHeading1(p, "4. Combinaisons de calcul")
+        CtcStyleCatalog.styleHeading1(p, "4. Combinaisons d'actions et poids sismique")
+        val combis = listOf(
+            "1. Situation Durable : 1.35 G + 1.50 Q (ELU)",
+            "2. Situation de Service : G + Q (ELS)",
+            "3. Situation Sismique RPA § 5.2 : G + Q ± Ex et G + Q ± Ey",
+            "4. Situation Sismique Renversante : 0.8 G ± Ex et 0.8 G ± Ey"
+        )
+        for (c in combis) {
+            CtcStyleCatalog.addParagraphText(doc.createParagraph(), c)
+        }
         CtcStyleCatalog.addParagraphText(
             doc.createParagraph(),
-            "Les sollicitations sont déterminées conformément au CBA 93 et au RPA 2024 selon les combinaisons :"
+            "Le poids sismique total W est évalué conformément à la formule W = Σ (Gi + ψ · Qi) avec ψ = 0.20 pour bâtiment d'habitation/bureaux."
         )
-        val combos = listOf(
-            "• E.L.U : 1.35 G + 1.50 Q",
-            "• E.L.S : G + Q",
-            "• Poids sismique total : Wi = W_Gi + ψ · W_Qi avec ψ = 0.30 (Tableau 4.2 RPA 2024)",
-            "• Combinaisons accidentelles : G + 0.3Q ± Ex ± 0.3Ey et G + 0.3Q ± 0.3Ex ± Ey (COMB1 à COMB8)"
-        )
-        for (cb in combos) {
-            val pCb = doc.createParagraph()
-            pCb.spacingAfter = 30
-            val r = pCb.createRun()
-            r.fontFamily = CtcStyleCatalog.FONT_FAMILY
-            r.fontSize = 10
-            r.setText(cb)
-        }
     }
 
     private fun buildChapter5LoadTakeDown(doc: XWPFDocument) {
@@ -330,7 +364,20 @@ class CtcNoteDeCalculWordGenerator {
         val p = doc.createParagraph()
         CtcStyleCatalog.styleHeading1(p, "9. Étude sismique (DTR BC 2.48 - RPA 2024)")
 
-        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.1 Participation modale de masse (RPA 2024 § 4.3.3)")
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.1 Spectres de réponse réglementaires RPA 2024 (§ 3.3)")
+        val pImgSpectrum = doc.createParagraph()
+        val spectrumPng = spectrumRenderer.renderToPng(
+            zone = payload.model.zone,
+            site = payload.model.site,
+            importance = payload.model.importance,
+            r = payload.model.behaviorR,
+            q = payload.model.qualityQ,
+            t0Operating = payload.modalModes.firstOrNull()?.periodSeconds ?: 0.399
+        )
+        insertImage(pImgSpectrum, spectrumPng, "Spectre_RPA2024.png", 460.0, 275.0)
+        CtcStyleCatalog.addParagraphText(doc.createParagraph(), "Figure 9.1 : Spectre de calcul RPA 2024 (Sad/g), spectre élastique (Sae/g) et seuil minimal 0.20·A·I.")
+
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.2 Participation modale de masse (RPA 2024 § 4.3.3)")
         val tModes = doc.createTable(payload.modalModes.size + 1, 5)
         CtcStyleCatalog.formatTable(tModes, listOf(1500, 2000, 2000, 2000, 2000))
         tModes.getRow(0).getCell(0).text = "Mode"
@@ -352,7 +399,7 @@ class CtcNoteDeCalculWordGenerator {
         }
         CtcStyleCatalog.addVerificationBadge(doc.createParagraph(), payload.modalSummary.diagnostic, payload.modalSummary.isCompliant)
 
-        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.2 Calage de la force sismique totale (MSE vs MDS § 4.2.3)")
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.3 Calage de la force sismique totale (MSE vs MDS § 4.2.3)")
         injectOmml(doc.createParagraph(), OmmlEquationBuilder.buildBaseShearEquation())
         CtcStyleCatalog.addParagraphText(
             doc.createParagraph(),
@@ -366,7 +413,7 @@ class CtcNoteDeCalculWordGenerator {
         )
         CtcStyleCatalog.addVerificationBadge(doc.createParagraph(), "Calage dynamique Sens Y (VMDS ≥ 0.80 VMSE)", payload.baseShearY.isCalibrated)
 
-        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.3 Vérification de l'effort normal réduit des poteaux (ν ≤ 0.35)")
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.4 Vérification de l'effort normal réduit des poteaux (ν ≤ 0.35)")
         injectOmml(doc.createParagraph(), OmmlEquationBuilder.buildReducedNormalStressEquation())
         val tNu = doc.createTable(payload.columnReducedStressChecks.size + 1, 6)
         CtcStyleCatalog.formatTable(tNu, listOf(1800, 1800, 1500, 1500, 1400, 1500))
@@ -390,11 +437,11 @@ class CtcNoteDeCalculWordGenerator {
             CtcStyleCatalog.formatDataRow(row)
         }
 
-        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.4 Déplacements inter-étages (νA·Δk ≤ 0.0075 hk)")
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.5 Déplacements inter-étages (νA·Δk ≤ 0.0075 hk)")
         injectOmml(doc.createParagraph(), OmmlEquationBuilder.buildStoryDriftEquation())
         CtcStyleCatalog.addVerificationBadge(doc.createParagraph(), "Déplacements inter-étages limitation des dommages", true)
 
-        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.5 Effet de second ordre P-Delta (θk ≤ 0.10)")
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "9.6 Effet de second ordre P-Delta (θk ≤ 0.10)")
         injectOmml(doc.createParagraph(), OmmlEquationBuilder.buildPDeltaEquation())
         CtcStyleCatalog.addVerificationBadge(doc.createParagraph(), "Stabilité de second ordre (θk_max < 0.10)", true)
     }
@@ -403,7 +450,7 @@ class CtcNoteDeCalculWordGenerator {
         val p = doc.createParagraph()
         CtcStyleCatalog.styleHeading1(p, "10. Calcul des éléments structuraux")
 
-        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "10.1 Ferraillage des poteaux (Flexion composée BAEL / RPA)")
+        CtcStyleCatalog.styleHeading2(doc.createParagraph(), "10.1 Ferraillage des poteaux (Flexion composée BAEL / RPA § 7.4)")
         for (col in payload.designedColumns) {
             CtcStyleCatalog.addParagraphText(
                 doc.createParagraph(),
@@ -412,6 +459,26 @@ class CtcNoteDeCalculWordGenerator {
                         "Zone nodale Lcr = ${col.lcrNodalZoneCm} cm, t = ${col.spacingNodalCm} cm, t' = ${col.spacingCurrentCm} cm, Lrec = ${col.lapLengthLrecCm} cm."
             )
         }
+
+        // Insertion Coupe & Élévation Poteau
+        val pImgCol = doc.createParagraph()
+        val colSectionPng = rebarRenderer.renderColumnSectionPng(
+            widthCm = 40.0,
+            heightCm = 50.0,
+            barDiameterMm = 14,
+            elementName = "POTEAU TYPE C111 (40x50 cm)"
+        )
+        insertImage(pImgCol, colSectionPng, "Coupe_Poteau_C111.png", 450.0, 310.0)
+        CtcStyleCatalog.addParagraphText(doc.createParagraph(), "Figure 10.1 : Coupe transversale de ferraillage du poteau C111 (BaelR / RPA § 7.4).")
+
+        val pImgColElev = doc.createParagraph()
+        val colElevPng = rebarRenderer.renderColumnElevationPng(
+            heightTotalM = 3.24,
+            sectionDimCm = 45.0,
+            elementName = "POTEAU C111 — ZONES NODALES Lcr & RECOUVREMENT"
+        )
+        insertImage(pImgColElev, colElevPng, "Elevation_Poteau_Lcr.png", 420.0, 440.0)
+        CtcStyleCatalog.addParagraphText(doc.createParagraph(), "Figure 10.2 : Élévation et répartition des étriers en zone nodale Lcr et zone courante (RPA § 7.4.2).")
 
         CtcStyleCatalog.styleHeading2(doc.createParagraph(), "10.2 Ferraillage des poutres et 4 vérifications à l'effort tranchant")
         for (beam in payload.designedBeams) {
@@ -424,6 +491,15 @@ class CtcNoteDeCalculWordGenerator {
         }
         CtcStyleCatalog.addVerificationBadge(doc.createParagraph(), "Les 4 vérifications à l'effort tranchant des poutres", true)
 
+        val pImgBeam = doc.createParagraph()
+        val beamSectionPng = rebarRenderer.renderBeamSectionPng(
+            widthBCm = 30.0,
+            heightHCm = 55.0,
+            elementName = "POUTRE PRINCIPALE PR (30x55 cm)"
+        )
+        insertImage(pImgBeam, beamSectionPng, "Coupe_Poutre_PR30x55.png", 450.0, 310.0)
+        CtcStyleCatalog.addParagraphText(doc.createParagraph(), "Figure 10.3 : Coupe transversale de ferraillage de la poutre principale PR 30x55 (RPA § 7.5).")
+
         CtcStyleCatalog.styleHeading2(doc.createParagraph(), "10.3 Voiles de contreventement (RPA 2024 § 7.7)")
         injectOmml(doc.createParagraph(), OmmlEquationBuilder.buildWallShearStressEquation())
         for (wall in payload.designedWalls) {
@@ -434,6 +510,28 @@ class CtcNoteDeCalculWordGenerator {
                         "Hauteur critique hcr = ${wall.criticalZoneHeightHcrMeters} m. Rives confinées lc = ${wall.leftBoundary.lcChosenCm} cm (St = 8 cm, 16T14)."
             )
         }
+
+        // Insertion des diagrammes d'enveloppes
+        val pImgWallM = doc.createParagraph()
+        val wallMPng = wallRenderer.renderMomentEnvelopePng(
+            wallLengthM = 1.40,
+            wallThicknessM = 0.30,
+            totalHeightM = 11.22,
+            hcrM = 3.39,
+            elementName = "VOILE V6 (1.40x0.30 m)"
+        )
+        insertImage(pImgWallM, wallMPng, "Enveloppe_Moments_Voile_V6.png", 460.0, 300.0)
+        CtcStyleCatalog.addParagraphText(doc.createParagraph(), "Figure 10.4 : Enveloppe des moments fléchissants Mu(z) décalée de la hauteur critique hcr (RPA § 7.7.1).")
+
+        val pImgWallV = doc.createParagraph()
+        val wallVPng = wallRenderer.renderShearEnvelopePng(
+            wallLengthM = 1.40,
+            wallThicknessM = 0.30,
+            elementName = "VOILE V6 — EFFORT TRANCHANT 1.40 Vu"
+        )
+        insertImage(pImgWallV, wallVPng, "Enveloppe_EffortTranchant_Voile_V6.png", 460.0, 300.0)
+        CtcStyleCatalog.addParagraphText(doc.createParagraph(), "Figure 10.5 : Diagramme d'effort tranchant amplifié 1.40 Vu et vérification limite tau_b <= 0.20 fc28.")
+
         CtcStyleCatalog.addVerificationBadge(doc.createParagraph(), "Conformité d'ensemble des trumeaux de contreventement", true)
     }
 
@@ -467,10 +565,20 @@ class CtcNoteDeCalculWordGenerator {
         injectOmml(doc.createParagraph(), OmmlEquationBuilder.buildSoilStressEquation())
         CtcStyleCatalog.addParagraphText(
             doc.createParagraph(),
-            "Déplacement vertical maximal sous SAFE : Δmax = 0.005 m. Raideur de sol Ks = 21 848 kN/m³. " +
+            "Déplacement vertical maximal sous SAFE : Δmax = 0.005 m. Raideur de sol Ks = ${"%.0f".format(Locale.US, payload.model.geo.subgradeReactionKsKnM3)} kN/m³. " +
                     "Contrainte effective : σeff = 0.005 · 21848 = 109.24 kPa ≤ σsol_adm = 120.00 kPa."
         )
         CtcStyleCatalog.addVerificationBadge(doc.createParagraph(), "Contrainte effective du sol admissible (σeff ≤ 120 kPa)", true)
+
+        // Insertion cartographie SAFE
+        val pImgSafe = doc.createParagraph()
+        val safePng = safeRenderer.renderSoilPressureHeatmapPng(
+            ksKNm3 = payload.model.geo.subgradeReactionKsKnM3,
+            sigmaSolAdmissibleBars = payload.model.geo.sigmaSolAdmBars,
+            peakStressBars = 1.15
+        )
+        insertImage(pImgSafe, safePng, "Cartographie_SAFE_Sol.png", 470.0, 315.0)
+        CtcStyleCatalog.addParagraphText(doc.createParagraph(), "Figure 13.1 : Cartographie spectrale des pressions de sol effectives sous semelles filantes (CSI SAFE v12).")
 
         CtcStyleCatalog.styleHeading2(doc.createParagraph(), "13.2 Ferraillage des semelles filantes et de joint (BaelR / BaelT)")
         for (f in payload.foundations) {

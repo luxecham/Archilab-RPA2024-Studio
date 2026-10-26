@@ -51,6 +51,7 @@ enum class AppTab(val title: String, val icon: ImageVector) {
     FOUNDATIONS_SAFE("Fondations SAFE / BaelT", Icons.Default.Foundation),
     BRIDGE_CONNECTOR("Bridge ETABS / SAFE", Icons.Default.SwapHoriz),
     CTC_AUDIT("Audit Pré-CTC & Optimisation", Icons.Default.CheckCircle),
+    INTERACTIVE_STUDIO("Studio Réactif & Graphiques", Icons.Default.Assessment),
     REPORT_GENERATOR("Générateur Note de Calcul", Icons.Default.Description)
 }
 
@@ -227,6 +228,7 @@ fun MainAppWindow() {
                     AppTab.FOUNDATIONS_SAFE -> FoundationsSafeTabContent(activeJoint)
                     AppTab.BRIDGE_CONNECTOR -> BridgeConnectorTabContent(activeJoint)
                     AppTab.CTC_AUDIT -> CtcAuditTabContent(activeJoint)
+                    AppTab.INTERACTIVE_STUDIO -> InteractiveStructuralStudioWindow()
                     AppTab.REPORT_GENERATOR -> ReportGeneratorTabContent(
                         joint = activeJoint,
                         isGenerating = isGenerating,
