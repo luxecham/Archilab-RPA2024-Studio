@@ -50,7 +50,40 @@ data class BaelTResult(
  * Solveur universel de section en Té en béton armé selon BAEL 91 mod. 99.
  * Remplace intégralement le logiciel SOCOTEC BaelT.
  */
-class BaelTSectionSolver {
+class BaelTSectionSolver(
+    private val fc28Mpa: Double = 25.0,
+    private val feMpa: Double = 500.0
+) {
+
+    /**
+     * Solveur de section en Té sous moment positif (table comprimée) - Émulation SOCOTEC BaelT.
+     */
+    fun solveTSection(
+        tableWidthBM: Double,
+        webWidthB0M: Double,
+        totalHeightHM: Double,
+        flangeHeightH0M: Double,
+        coverCM: Double,
+        muKnM: Double,
+        gammaB: Double = 1.20,
+        gammaS: Double = 1.00
+    ): BaelTResult {
+        return solveBaelT(
+            BaelTInput(
+                flangeWidthBMeters = tableWidthBM,
+                webWidthB0Meters = webWidthB0M,
+                totalHeightHMeters = totalHeightHM,
+                flangeThicknessH0Meters = flangeHeightH0M,
+                cMeters = coverCM,
+                dPrimeMeters = coverCM,
+                fc28MPa = fc28Mpa,
+                feMPa = feMpa,
+                momentMUKNm = muKnM,
+                gammaB = gammaB,
+                gammaS = gammaS
+            )
+        )
+    }
 
     /**
      * Résout exactement la section en Té aux ELU (et ELA).
