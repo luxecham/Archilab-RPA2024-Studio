@@ -22,6 +22,7 @@ import com.archilab.rpa2024.model.*
 import com.archilab.rpa2024.normative.ImportanceGroup
 import com.archilab.rpa2024.normative.SeismicZone
 import com.archilab.rpa2024.model.SoilSiteClass
+import com.archilab.rpa2024.state.InteractiveProjectState
 
 /**
  * Conteneur universel regroupant toutes les données calculées nécessaires pour alimenter les 13 chapitres.
@@ -164,6 +165,158 @@ data class CtcReportDataPayload(
                 joist = joistRes,
                 staircase = stairRes,
                 foundations = safeOutputs
+            )
+        }
+
+        /**
+         * Construit le payload documentaire depuis l'etat courant du studio interactif.
+         * Les sections, efforts, parametres sismiques et donnees de sol suivent les
+         * curseurs ; la note Word est donc synchronisee avec l'interface.
+         */
+        fun fromInteractiveState(state: InteractiveProjectState): CtcReportDataPayload {
+            val base = createJointASample()
+            val model = base.model.copy(
+                projectName = state.projectName,
+                wilaya = state.wilaya,
+                zone = state.seismicZone,
+                site = state.siteClass,
+                importance = state.importanceGroup,
+                behaviorR = state.behaviorFactorR,
+                qualityQ = state.qualityFactorQ,
+                dampingEta = maxOf(0.70, kotlin.math.sqrt(7.0 / (2.0 + state.dampingPercent))),
+                concrete = base.model.concrete.copy(fc28Mpa = state.columnFc28MPa),
+                rebar = base.model.rebar.copy(feMpa = state.columnFeMPa),
+                geo = base.model.geo.copy(
+                    sigmaSolAdmBars = state.soilSigmaSolAdmBars,
+                    subgradeReactionKsKnM3 = state.soilKsKNm3
+                ),
+                stories = mutableListOf(StoryLevel("RDC", state.columnStoryHeightM, 0.0))
+            )
+
+            val seismicConfig = SeismicProjectConfig(
+                zone = state.seismicZone,
+                site = state.siteClass,
+                importance = state.importanceGroup,
+                behaviorFactorR = state.behaviorFactorR,
+                qualityFactorQ = state.qualityFactorQ,
+                criticalDampingPercent = state.dampingPercent,
+                totalHeightMeters = state.wallTotalHeightHM,
+                numberOfStories = 3,
+                totalWeightKn = 10_357.95,
+                structureTypeCodeCt = 0.050
+            )
+            val calibrator = ModalAndBaseShearCalibrator(
+                seismicConfig,
+                Rpa2024SpectrumGenerator(seismicConfig)
+            )
+            val shearX = calibrator.calibrateBaseShear(
+                "X-X",
+                state.fundamentalPeriodT0,
+                base.baseShearX.dynamicForceVmdsKn
+            )
+            val shearY = calibrator.calibrateBaseShear(
+                "Y-Y",
+                state.fundamentalPeriodT0,
+                base.baseShearY.dynamicForceVmdsKn
+            )
+
+            val column = ColumnFramesDesigner(
+                state.seismicZone,
+                state.columnFc28MPa,
+                state.columnFeMPa
+            ).designColumn(
+                columnId = "C1",
+                story = "RDC",
+                sectionName = "POT ${state.columnWidthBCm.toInt()}X${state.columnHeightHCm.toInt()}",
+                bCm = state.columnWidthBCm,
+                hCm = state.columnHeightHCm,
+                clearHeightMeters = state.columnStoryHeightM,
+                ndMaxKn = state.columnNedKN,
+                muCorrKnM = state.columnMedKNm,
+                vuMaxKn = state.columnVedKN
+            )
+
+            val beam = BeamFramesDesigner(
+                state.columnFc28MPa,
+                state.columnFeMPa
+            ).designBeam(
+                beamId = "B1",
+                story = "RDC",
+                sectionName = "PR ${state.beamWidthBCm.toInt()}X${state.beamHeightHCm.toInt()}",
+                isPrimary = true,
+                bCm = state.beamWidthBCm,
+                hCm = state.beamHeightHCm,
+                lengthMeters = state.beamSpanM,
+                muSpanKnM = state.beamMuKNm,
+                muSupportKnM = state.beamMuKNm * 1.15,
+                vuMaxKn = state.beamVuKN
+            )
+
+            val wall = AutonomousShearWallDesigner(
+                state.wallFc28MPa,
+                state.columnFeMPa
+            ).designShearWall(
+                pierName = "V1",
+                lwMeters = state.wallLengthLwM,
+                bwMeters = state.wallThicknessEM,
+                totalHeightHwMeters = state.wallTotalHeightHM,
+                storyForces = listOf(
+                    StoryPierForces(
+                        "RDC", 0.0, state.columnStoryHeightM,
+                        state.wallNedKN, state.wallVedKN, state.wallMedKNm
+                    )
+                ),
+                totalStoriesN = 3
+            )
+
+            val nuCheck = ReducedNormalStressValidator(state.columnFc28MPa).validateColumn(
+                story = "RDC",
+                columnId = "C1",
+                sectionName = "POT ${state.columnWidthBCm.toInt()}X${state.columnHeightHCm.toInt()}",
+                bCm = state.columnWidthBCm,
+                hCm = state.columnHeightHCm,
+                ndMaxCompressiveKn = -state.columnNedKN
+            )
+
+            val foundation = SafeFoundationEngine(
+                state.columnFc28MPa,
+                state.columnFeMPa,
+                coverCMeters = 0.05
+            ).designFootingBeam(
+                SafeFootingInput(
+                    "Line_SFJ200", "SFJ200", true,
+                    state.stripWidthSFJ200M, 0.90, 0.90, 0.40,
+                    state.soilKsKNm3, state.soilSigmaSolAdmBars,
+                    state.foundationOutput.estimatedMaxSettlementMm / 1000.0,
+                    state.wallMedKNm * 0.5, state.beamMuKNm,
+                    state.wallVedKN, state.peakColumnLoadKN
+                )
+            )
+
+            val parapet = ParapetWallSolver(
+                state.columnFc28MPa,
+                state.columnFeMPa,
+                state.seismicZone.coeffA
+            ).designParapet()
+            val joist = ContinuousHollowFloorSolver(
+                state.columnFc28MPa,
+                state.columnFeMPa
+            ).solveJoistSpan(JoistSpanData(4, state.beamSpanM, 3.40, 1.50))
+            val staircase = StaircaseSolver(state.columnFeMPa)
+                .designStraightStaircase(spanLengthMeters = state.beamSpanM)
+
+            return base.copy(
+                model = model,
+                baseShearX = shearX,
+                baseShearY = shearY,
+                columnReducedStressChecks = listOf(nuCheck),
+                designedColumns = listOf(column),
+                designedBeams = listOf(beam),
+                designedWalls = listOf(wall),
+                foundations = listOf(foundation),
+                parapet = parapet,
+                joist = joist,
+                staircase = staircase
             )
         }
     }

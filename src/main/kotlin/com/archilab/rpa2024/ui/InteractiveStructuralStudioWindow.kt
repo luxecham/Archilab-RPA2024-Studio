@@ -141,7 +141,7 @@ fun InteractiveStructuralStudioWindow(
                             val exportDir = File("./exports").apply { mkdirs() }
                             val outFile = File(exportDir, "NOTE_DE_CALCUL_OFFICIELLE_CTC_JOINT_A.docx")
                             val generator = CtcNoteDeCalculWordGenerator()
-                            val payload = CtcReportDataPayload.createJointASample()
+                            val payload = CtcReportDataPayload.fromInteractiveState(projectState)
                             generator.generateOfficialCtcWordReport(outFile, payload)
                         }
                         generationStatusMessage = "✓ Rapport officiel généré avec succès dans ./exports/"

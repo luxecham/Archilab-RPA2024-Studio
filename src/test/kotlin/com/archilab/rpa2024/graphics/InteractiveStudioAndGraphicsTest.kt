@@ -159,6 +159,25 @@ class InteractiveStudioAndGraphicsTest {
     }
 
     @Test
+    fun testReactiveWordPayloadTracksCurrentState() {
+        val manager = ProjectStateManager()
+        manager.updateColumnParams(widthCm = 65.0, heightCm = 65.0, nedKN = 2000.0)
+        val payload = CtcReportDataPayload.fromInteractiveState(manager.state.value)
+        val column = payload.designedColumns.first()
+        assertEquals(65.0, column.bCm, 1e-9)
+        assertEquals(65.0, column.hCm, 1e-9)
+        assertEquals(2000.0, column.ndMaxKn, 1e-9)
+        assertEquals(65.0, payload.columnReducedStressChecks.first().bCm, 1e-9)
+        assertTrue(payload.foundations.isNotEmpty())
+        assertEquals(manager.state.value.seismicZone, payload.model.zone)
+
+        manager.updateSeismicParams(zone = SeismicZone.ZONE_II)
+        val updated = CtcReportDataPayload.fromInteractiveState(manager.state.value)
+        assertEquals(SeismicZone.ZONE_II, updated.model.zone)
+        assertEquals(0.10, updated.baseShearX.designSpectralAccelSadOverG, 0.20)
+    }
+
+    @Test
     fun testWordDocumentIncludesAllRenderedGraphics() {
         val outDocx = File("build/test-results/TEST_NOTE_DE_CALCUL_WITH_VECTOR_GRAPHICS.docx")
         outDocx.parentFile?.mkdirs()
