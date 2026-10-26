@@ -99,6 +99,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
       {/* Right side: Database Backup, Theme Switcher, Certification Badge, Language Switcher, Reset Demo */}
       <div className="flex items-center gap-1.5 sm:gap-2">
+        <a
+          href="./civilwork-wasm/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Ouvrir le calculateur RPA 2024 compilé en WebAssembly"
+          className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 transition-all"
+        >
+          <Globe className="w-3.5 h-3.5" />
+          <span>Civilwork Wasm</span>
+        </a>
         {/* Anti-Rejet Certification Badge */}
         <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold border border-emerald-500/20 shadow-xs">
           <ShieldCheck className="w-3.5 h-3.5" />

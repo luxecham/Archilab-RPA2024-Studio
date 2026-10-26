@@ -27,11 +27,32 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Installer JDK 21 pour Civilwork Wasm
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Configurer Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compiler Civilwork en WebAssembly
+        run: ./gradlew -p civilwork-web wasmJsBrowserDistribution --console=plain --no-daemon
+
       - name: Install Dependencies
         run: npm ci
 
       - name: Build Production Assets
         run: npm run build
+
+      - name: Ajouter la page Civilwork Wasm
+        run: |
+          set -euo pipefail
+          mkdir -p dist/civilwork-wasm
+          cp -R civilwork-web/build/dist/wasmJs/productionExecutable/. dist/civilwork-wasm/
+          cp civilwork-web/index.html dist/civilwork-wasm/index.html
+          test -f dist/civilwork-wasm/archilab-civilwork.js
+          test -f dist/civilwork-wasm/index.html
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
