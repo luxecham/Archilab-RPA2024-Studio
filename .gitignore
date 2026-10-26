@@ -1,0 +1,82 @@
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+build/
+out/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+
+# Système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Exécutables, installeurs et archives de livraison
+*.exe
+*.msi
+*.msix
+*.zip
+*.7z
+*.tar
+*.gz
+*.dmg
+*.pkg
+*.deb
+*.rpm
+
+# Rapports, plans et métrés générés
+*.pdf
+*.docx
+*.xlsx
+*.xls
+*.csv
+*.dxf
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.log
+build*/
+dist/
+python_app/dist/
+python_app/build*/
+python_app/build_livraison/
+python_app/plans/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+python_app/tools/classes/
+python_app/tools/*.class
+
+# Données de projet et références locales
+.ref/
+ndc.txt
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
+*.pem
+*.key
+secrets.*
+credentials.*
+
+# Fixtures binaires conservées explicitement
+!python_app/samples/DEMO_ETABS.mdb

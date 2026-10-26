@@ -1,0 +1,11 @@
+Soil Pressure
+Area	Story	LoadCase	Pressure	Displacement
+S1_0_0	N1	COMB1	180.0	0.0050
+S1_1_0	N1	COMB1	172.0	0.0048
+S1_0_1	N1	COMB1	176.0	0.0049
+S1_1_1	N1	COMB1	168.0	0.0046
+
+Punching Shear
+Area	Vu	VRd	Ratio
+S1_0_0	260.0	520.0	0.50
+S1_1_1	240.0	510.0	0.47
