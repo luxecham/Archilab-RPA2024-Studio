@@ -15,11 +15,13 @@ import {
   ShieldAlert,
   FolderKanban,
   MoreHorizontal,
+  Activity,
   X
 } from 'lucide-react';
 import { useBTP } from '../context/BTPContext';
 
 export type ActiveTab = 
+  | 'civilwork-ag'
   | 'dashboard'
   | 'projects'
   | 'markets'
@@ -50,6 +52,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
   }, 0);
 
   const navItems = [
+    {
+      id: 'civilwork-ag',
+      label: 'CivilWork AG (RPA 2024)',
+      labelAr: 'الحساب الزلزالي RPA 2024',
+      icon: Activity,
+      badge: 'RPA 2024 CTC',
+      badgeColor: 'bg-emerald-600 text-white font-black animate-pulse'
+    },
     {
       id: 'dashboard',
       label: 'Tableau de Bord',
@@ -166,16 +176,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
         <div className="h-18 px-5 border-b border-white/40 dark:border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/25 text-white font-black text-base tracking-wider border border-white/30">
-              AM
+              AG
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-slate-900 dark:text-white text-base tracking-tight">ARCHILAB</span>
-                <span className="text-[10px] font-black uppercase bg-blue-500/20 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/30">
-                  ERP DZ
+                <span className="text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full border border-emerald-500/30">
+                  CIVILWORK AG
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Marchés Publics & BTP</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">RPA 2024 & Ingénierie CTC</p>
             </div>
           </div>
 

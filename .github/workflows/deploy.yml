@@ -1,4 +1,4 @@
-name: Deploy BTP Manager Pro DZ to GitHub Pages
+name: Deploy ARCHILAB CIVILWORK AG to GitHub Pages
 
 on:
   push:

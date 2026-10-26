@@ -31,6 +31,7 @@ interface TesterFeedbackWidgetProps {
 }
 
 const MODULE_NAMES: Record<ActiveTab, string> = {
+  'civilwork-ag': 'CivilWork AG (Calcul RPA 2024 & Note CTC)',
   'dashboard': 'Tableau de bord',
   'projects': 'Projets (Gestion & Contrôle)',
   'markets': 'Marchés & DQE',

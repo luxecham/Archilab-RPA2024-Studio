@@ -14,10 +14,11 @@ import { LogisticsView } from './views/LogisticsView';
 import { FinanceView } from './views/FinanceView';
 import { HRView } from './views/HRView';
 import { IAMetreurView } from './views/IAMetreurView';
+import { CivilWorkAGView } from './views/CivilWorkAGView';
 import { TesterFeedbackWidget } from './components/TesterFeedbackWidget';
 
 const MainLayout: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('civilwork-ag');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { lang } = useBTP();
 
@@ -38,6 +39,7 @@ const MainLayout: React.FC = () => {
 
         {/* View Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 max-w-7xl w-full mx-auto overflow-x-hidden">
+          {activeTab === 'civilwork-ag' && <CivilWorkAGView />}
           {activeTab === 'dashboard' && <DashboardView onNavigate={setActiveTab} />}
           {activeTab === 'projects' && <ProjectsView onNavigate={setActiveTab} />}
           {activeTab === 'markets' && <MarketsView />}
