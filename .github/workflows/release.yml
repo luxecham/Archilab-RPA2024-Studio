@@ -1,0 +1,125 @@
+name: Release Windows
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de la release (ex. v1.7.0)"
+        required: true
+        default: v1.7.0
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  kotlin-installer:
+    name: Installateur Kotlin / Compose
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Configurer Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Tester et empaqueter
+        shell: bash
+        run: ./gradlew test packageExe --console=plain
+
+      - name: Conserver l'installateur
+        uses: actions/upload-artifact@v4
+        with:
+          name: kotlin-installer
+          path: build/compose/binaries/main/exe/*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  python-executable:
+    name: Executable Python standalone
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: python_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: python_app/requirements.txt
+
+      - name: Installer les dependances
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+      - name: Construire l'executable un fichier
+        run: pyinstaller ArchilabRPA2024.spec --noconfirm --clean
+
+      - name: Conserver l'executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-executable
+          path: python_app/dist/ArchilabRPA2024.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publier sur GitHub Releases
+    needs: [kotlin-installer, python-executable]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recuperer les binaires
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Preparer les assets et les empreintes
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          mkdir -p release
+          KOTLIN_EXE="$(find artifacts/kotlin-installer -name '*.exe' -print -quit)"
+          test -n "$KOTLIN_EXE"
+          cp "$KOTLIN_EXE" "release/ArchilabRPA2024-Studio-${VERSION}-Windows.exe"
+          cp artifacts/python-executable/ArchilabRPA2024.exe \
+             "release/ArchilabRPA2024-Python-${VERSION}-Windows.exe"
+          cd release
+          sha256sum *.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Creer ou mettre a jour la release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -f "release-notes/${RELEASE_TAG}.md" ]; then
+            NOTES=(--notes-file "release-notes/${RELEASE_TAG}.md")
+          else
+            NOTES=(--generate-notes)
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release/* \
+              --title "Archilab RPA2024 Studio ${RELEASE_TAG}" \
+              "${NOTES[@]}"
+            gh release edit "$RELEASE_TAG" --latest
+          fi

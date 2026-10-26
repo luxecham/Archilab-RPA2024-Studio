@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archilab RPA2024 Studio — Note de calcul RPA 2024 / BAEL 91</title>
+<meta name="description" content="Studio Windows de calcul et de note de calcul RPA 2024 (DTR BC 2.48) et BAEL 91 pour l'Algérie : ETABS/SAFE, audits CTC, ferraillage, plans DXF, DQE. Téléchargement direct.">
+<meta name="theme-color" content="#080d16">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Archilab RPA2024 Studio">
+<meta property="og:description" content="ETABS/SAFE vers note de calcul RPA 2024/BAEL 91, audits CTC, plans DXF et DQE. Application Windows autonome.">
+<meta property="og:url" content="https://luxecham.github.io/Archilab-RPA2024-Studio/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f1726'/%3E%3Cpath d='M14 50V26l10-8 10 8v24M34 50V32l8-6 8 6v18' fill='none' stroke='%23f0a33c' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #080d16;
+    --bg-soft: #0b1220;
+    --panel: #0f1726;
+    --panel-2: #131d30;
+    --line: #1e2c44;
+    --line-soft: #16223a;
+    --text: #e8eef8;
+    --muted: #93a4bd;
+    --accent: #f0a33c;
+    --accent-soft: rgba(240, 163, 60, .14);
+    --teal: #46d3c0;
+    --teal-soft: rgba(70, 211, 192, .12);
+    --radius: 16px;
+    --shadow: 0 24px 60px rgba(0, 0, 0, .45);
+    --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --mono: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--teal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { width: min(1180px, calc(100% - 48px)); margin-inline: auto; }
+  .skip {
+    position: absolute; left: -9999px; top: 0; background: var(--accent);
+    color: #111; padding: 10px 16px; z-index: 100; border-radius: 0 0 8px 0;
+  }
+  .skip:focus { left: 0; }
+
+  /* ---------------------------------------------------------------- header */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(8, 13, 22, .82);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .topbar .wrap { display: flex; align-items: center; gap: 24px; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 12px; color: var(--text); font-weight: 700; letter-spacing: .2px; }
+  .brand:hover { text-decoration: none; }
+  .brand svg { width: 34px; height: 34px; flex: none; }
+  .brand small { display: block; color: var(--muted); font-size: .72rem; font-weight: 500; letter-spacing: .6px; text-transform: uppercase; }
+  .nav { margin-left: auto; display: flex; align-items: center; gap: 26px; }
+  .nav a { color: var(--muted); font-size: .92rem; font-weight: 500; }
+  .nav a:hover { color: var(--text); text-decoration: none; }
+  .nav .gh { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); }
+  .nav .gh:hover { border-color: var(--accent); }
+  @media (max-width: 860px) { .nav a:not(.gh) { display: none; } }
+
+  /* ------------------------------------------------------------------ hero */
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line-soft); }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(70, 211, 192, .05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(70, 211, 192, .05) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 70% at 60% 10%, #000 20%, transparent 75%);
+  }
+  .hero::after {
+    content: ""; position: absolute; width: 560px; height: 560px; right: -140px; top: -220px;
+    background: radial-gradient(circle, rgba(240, 163, 60, .16), transparent 62%);
+    pointer-events: none;
+  }
+  .hero .wrap {
+    position: relative; z-index: 1;
+    display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px;
+    align-items: center; padding: 84px 0 72px;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
+    color: var(--muted); font-size: .78rem; letter-spacing: .9px; text-transform: uppercase;
+  }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px var(--teal-soft); }
+  h1 { font-size: clamp(2.3rem, 4.6vw, 3.7rem); line-height: 1.08; margin: 22px 0 18px; letter-spacing: -.8px; }
+  h1 .accent { color: var(--accent); }
+  .lead { color: var(--muted); font-size: 1.08rem; max-width: 54ch; margin: 0 0 30px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 14px 22px; border-radius: 12px; font-weight: 700; font-size: .97rem;
+    border: 1px solid transparent; transition: transform .15s ease, background .15s ease, border-color .15s ease;
+  }
+  .btn:hover { text-decoration: none; transform: translateY(-1px); }
+  .btn-primary { background: var(--accent); color: #161006; box-shadow: 0 10px 30px rgba(240, 163, 60, .22); }
+  .btn-primary:hover { background: #f5b45c; }
+  .btn-ghost { border-color: var(--line); color: var(--text); background: rgba(19, 29, 48, .5); }
+  .btn-ghost:hover { border-color: var(--teal); }
+  .btn svg { width: 18px; height: 18px; }
+  .hero-note { margin-top: 18px; color: var(--muted); font-size: .84rem; display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  .hero-note span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-note svg { width: 14px; height: 14px; color: var(--teal); }
+
+  .visual {
+    position: relative; border: 1px solid var(--line); border-radius: 22px;
+    background: linear-gradient(160deg, #101a2b, #0a111d 70%);
+    padding: 18px; box-shadow: var(--shadow);
+  }
+  .visual-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 14px; color: var(--muted); font-size: .76rem; letter-spacing: .8px; text-transform: uppercase; }
+  .visual-head .lights { display: flex; gap: 6px; }
+  .visual-head .lights i { width: 9px; height: 9px; border-radius: 50%; background: #2a3954; display: block; }
+  .visual-head .lights i:first-child { background: var(--accent); }
+  .visual svg { display: block; width: 100%; height: auto; border-radius: 12px; background: #0a1220; }
+  .visual-foot { display: flex; justify-content: space-between; gap: 12px; padding: 14px 4px 2px; color: var(--muted); font-size: .78rem; }
+  .visual-foot b { color: var(--text); font-weight: 600; }
+  @media (max-width: 980px) {
+    .hero .wrap { grid-template-columns: 1fr; gap: 40px; padding: 56px 0 50px; }
+    .visual { max-width: 620px; }
+  }
+
+  /* ----------------------------------------------------------------- stats */
+  .stats { border-bottom: 1px solid var(--line-soft); background: var(--bg-soft); }
+  .stats .wrap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; }
+  .stat { padding: 26px 20px; border-left: 1px solid var(--line-soft); }
+  .stat:first-child { border-left: 0; padding-left: 0; }
+  .stat b { display: block; font-size: 1.6rem; letter-spacing: -.5px; }
+  .stat span { color: var(--muted); font-size: .82rem; }
+  @media (max-width: 760px) {
+    .stats .wrap { grid-template-columns: 1fr 1fr; }
+    .stat { padding: 20px 16px; }
+    .stat:nth-child(3) { border-left: 0; padding-left: 0; }
+  }
+
+  /* --------------------------------------------------------------- sections */
+  section.block { padding: 78px 0; border-bottom: 1px solid var(--line-soft); }
+  .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 36px; }
+  .kicker { color: var(--accent); font-size: .78rem; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; margin: 0 0 10px; }
+  h2 { font-size: clamp(1.65rem, 2.8vw, 2.3rem); line-height: 1.2; margin: 0; letter-spacing: -.4px; }
+  .section-head p { color: var(--muted); max-width: 48ch; margin: 0; font-size: .95rem; }
+
+  /* ------------------------------------------------------------- downloads */
+  #release-status { color: var(--muted); font-size: .88rem; display: inline-flex; align-items: center; gap: 8px; }
+  #release-status .spinner {
+    width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--line);
+    border-top-color: var(--teal); animation: spin .9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .downloads { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .dl-card {
+    display: flex; flex-direction: column; gap: 16px;
+    padding: 26px; border: 1px solid var(--line); border-radius: var(--radius);
+    background: linear-gradient(165deg, var(--panel-2), var(--panel));
+  }
+  .dl-card.recommended { border-color: rgba(240, 163, 60, .45); box-shadow: 0 0 0 1px rgba(240, 163, 60, .12) inset; }
+  .dl-top { display: flex; gap: 16px; align-items: flex-start; }
+  .dl-icon {
+    width: 46px; height: 46px; flex: none; border-radius: 12px; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .dl-card.python .dl-icon { background: var(--teal-soft); color: var(--teal); }
+  .dl-icon svg { width: 24px; height: 24px; }
+  .dl-name { margin: 0; font-size: 1.12rem; }
+  .dl-tag { color: var(--muted); font-size: .84rem; }
+  .tag {
+    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-size: .68rem;
+    font-weight: 700; letter-spacing: .6px; text-transform: uppercase; vertical-align: 2px;
+  }
+  .dl-desc { color: var(--muted); font-size: .91rem; margin: 0; flex: 1; }
+  .dl-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--muted); font-size: .78rem; font-family: var(--mono); }
+  .dl-card .btn { width: 100%; }
+  .dl-card.placeholder { opacity: .72; }
+  .dl-card.placeholder .btn { background: var(--panel-2); color: var(--muted); border-color: var(--line); box-shadow: none; }
+  .checksum { margin-top: 18px; color: var(--muted); font-size: .82rem; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  .checksum code { font-family: var(--mono); font-size: .78rem; color: var(--text); background: var(--panel); border: 1px solid var(--line); padding: 3px 8px; border-radius: 6px; }
+  @media (max-width: 880px) { .downloads { grid-template-columns: 1fr; } }
+
+  /* --------------------------------------------------------------- products */
+  .products { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .product {
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 30px;
+    background: var(--panel); position: relative; overflow: hidden;
+  }
+  .product::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent 70%);
+  }
+  .product.python::before { background: linear-gradient(90deg, var(--teal), transparent 70%); }
+  .product h3 { margin: 0 0 6px; font-size: 1.3rem; }
+  .product .sub { color: var(--muted); font-size: .86rem; margin-bottom: 22px; }
+  .product ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .product li { display: flex; gap: 11px; color: #c8d4e6; font-size: .93rem; }
+  .product li svg { width: 17px; height: 17px; flex: none; margin-top: 3px; color: var(--accent); }
+  .product.python li svg { color: var(--teal); }
+  @media (max-width: 880px) { .products { grid-template-columns: 1fr; } }
+
+  /* -------------------------------------------------------------- features */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .feature {
+    border: 1px solid var(--line-soft); border-radius: 14px; padding: 24px;
+    background: rgba(15, 23, 38, .55);
+  }
+  .feature:hover { border-color: var(--line); }
+  .feature .num { font-family: var(--mono); color: var(--accent); font-size: .78rem; letter-spacing: 1px; }
+  .feature h3 { margin: 10px 0 8px; font-size: 1.02rem; }
+  .feature p { margin: 0; color: var(--muted); font-size: .88rem; }
+  @media (max-width: 980px) { .features { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 640px) { .features { grid-template-columns: 1fr; } }
+
+  /* ----------------------------------------------------------- installation */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: step; }
+  .step { border-left: 2px solid var(--line); padding: 6px 0 6px 22px; counter-increment: step; }
+  .step::before {
+    content: "0" counter(step); display: block; font-family: var(--mono);
+    color: var(--teal); font-size: .78rem; margin-bottom: 8px; letter-spacing: 1px;
+  }
+  .step h3 { margin: 0 0 6px; font-size: 1rem; }
+  .step p { margin: 0; color: var(--muted); font-size: .88rem; }
+  .callout {
+    margin-top: 28px; display: flex; gap: 14px; padding: 18px 20px;
+    border: 1px solid rgba(240, 163, 60, .35); border-radius: 12px;
+    background: rgba(240, 163, 60, .06); color: #e6d7bf; font-size: .9rem;
+  }
+  .callout svg { width: 20px; height: 20px; flex: none; color: var(--accent); margin-top: 2px; }
+  @media (max-width: 820px) { .steps { grid-template-columns: 1fr; gap: 24px; } }
+
+  /* ------------------------------------------------------------- docs/limits */
+  .doc-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 20px; align-items: start; }
+  .doc-links { display: grid; gap: 10px; }
+  .doc-link {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 16px 20px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); color: var(--text); font-size: .94rem;
+  }
+  .doc-link:hover { text-decoration: none; border-color: var(--teal); }
+  .doc-link span { color: var(--muted); font-size: .82rem; }
+  .doc-link svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+  .limits { border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 24px; background: var(--bg-soft); }
+  .limits h3 { margin: 0 0 14px; font-size: 1rem; color: var(--accent); }
+  .limits ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: .86rem; display: grid; gap: 9px; }
+  @media (max-width: 880px) { .doc-grid { grid-template-columns: 1fr; } }
+
+  /* ---------------------------------------------------------------- footer */
+  footer { padding: 44px 0 54px; color: var(--muted); font-size: .84rem; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 18px 32px; align-items: center; justify-content: space-between; }
+  footer a { color: var(--muted); }
+  footer a:hover { color: var(--text); }
+  .foot-brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 600; }
+  .foot-brand svg { width: 24px; height: 24px; }
+  .disclaimer { max-width: 62ch; color: #6f819b; font-size: .78rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+</style>
+</head>
+<body>
+<a class="skip" href="#contenu">Aller au contenu</a>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill="#0f1726" stroke="#1e2c44"/>
+        <path d="M14 50V26l10-8 10 8v24M34 50V32l8-6 8 6v18" fill="none" stroke="#f0a33c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Archilab<small>RPA2024 Studio</small></span>
+    </a>
+    <nav class="nav" aria-label="Navigation principale">
+      <a href="#telechargements">Téléchargements</a>
+      <a href="#produits">Applications</a>
+      <a href="#fonctionnalites">Fonctionnalités</a>
+      <a href="#documentation">Documentation</a>
+      <a class="gh" href="https://github.com/luxecham/Archilab-RPA2024-Studio" rel="noopener">
+        <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        GitHub
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main id="contenu">
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot"></span> RPA 2024 · BAEL 91 · CBA 93</p>
+        <h1>De l'export ETABS/SAFE à la <span class="accent">note de calcul CTC</span>.</h1>
+        <p class="lead">
+          Un studio Windows qui recalcule, vérifie et documente la structure en quelques
+          minutes : audits de régularité, ferraillage commercial, plans DXF, DQE acier et
+          note de calcul de 13 chapitres. Sans saisie manuelle des efforts.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" data-release-link href="https://github.com/luxecham/Archilab-RPA2024-Studio/releases/latest" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+            Télécharger pour Windows
+          </a>
+          <a class="btn btn-ghost" href="#produits">Comparer les deux applications</a>
+        </div>
+        <p class="hero-note">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Windows 10/11 64 bits</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Aucun Java ni Python à installer</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Version <span id="hero-version">1.7.0</span></span>
+        </p>
+      </div>
+
+      <div class="visual" aria-label="Schéma technique de la trame porteuse">
+        <div class="visual-head">
+          <span>Joint A · trame porteuse</span>
+          <span class="lights" aria-hidden="true"><i></i><i></i><i></i></span>
+        </div>
+        <svg viewBox="0 0 560 390" role="img" aria-labelledby="schema-title">
+          <title id="schema-title">Élévation schématique d'une trame de poteaux et poutres avec cotes</title>
+          <defs>
+            <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+              <path d="M28 0H0V28" fill="none" stroke="#142138" stroke-width="1"/>
+            </pattern>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+              <path d="M0 0 8 4 0 8Z" fill="#46d3c0"/>
+            </marker>
+          </defs>
+          <rect width="560" height="390" fill="url(#grid)"/>
+          <g fill="none" stroke="#3d5577" stroke-width="1">
+            <path d="M70 70H490M70 150H490M70 230H490M70 310H490"/>
+            <path d="M70 70V310M210 70V310M350 70V310M490 70V310"/>
+          </g>
+          <g fill="none" stroke="#f0a33c" stroke-width="5" stroke-linecap="square">
+            <path d="M70 70V310M210 70V310M350 70V310M490 70V310"/>
+            <path d="M70 70H490M70 150H490M70 230H490M70 310H490"/>
+          </g>
+          <g fill="#0a1220" stroke="#f0a33c" stroke-width="3">
+            <circle cx="70" cy="70" r="5"/><circle cx="210" cy="70" r="5"/><circle cx="350" cy="70" r="5"/><circle cx="490" cy="70" r="5"/>
+            <circle cx="70" cy="150" r="5"/><circle cx="210" cy="150" r="5"/><circle cx="350" cy="150" r="5"/><circle cx="490" cy="150" r="5"/>
+            <circle cx="70" cy="230" r="5"/><circle cx="210" cy="230" r="5"/><circle cx="350" cy="230" r="5"/><circle cx="490" cy="230" r="5"/>
+            <circle cx="70" cy="310" r="5"/><circle cx="210" cy="310" r="5"/><circle cx="350" cy="310" r="5"/><circle cx="490" cy="310" r="5"/>
+          </g>
+          <g stroke="#46d3c0" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)">
+            <path d="M70 344H490"/>
+            <path d="M70 350V70"/>
+          </g>
+          <g fill="#93a4bd" font-family="Consolas, monospace" font-size="12">
+            <text x="266" y="362" text-anchor="middle">L = 15,00 m</text>
+            <text x="34" y="196" text-anchor="middle" transform="rotate(-90 34 196)">H = 14,96 m</text>
+            <text x="66" y="58" text-anchor="end">A</text>
+            <text x="206" y="58" text-anchor="end">B</text>
+            <text x="346" y="58" text-anchor="end">C</text>
+          </g>
+          <g fill="#f0a33c" font-family="Consolas, monospace" font-size="11">
+            <text x="78" y="66">N4</text>
+            <text x="78" y="146">N3</text>
+            <text x="78" y="226">N2</text>
+            <text x="78" y="306">N1</text>
+          </g>
+          <g fill="#46d3c0" font-family="Consolas, monospace" font-size="11">
+            <text x="510" y="86">θ ≤ 0,10</text>
+            <text x="510" y="166">ν ≤ 0,35</text>
+            <text x="510" y="246">b2 stable</text>
+            <text x="510" y="326">SCWB ✓</text>
+          </g>
+        </svg>
+        <div class="visual-foot">
+          <span>RPA 2024 · <b>DTR BC 2.48</b></span>
+          <span><b>BAEL 91</b> rév. 99</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="wrap" aria-label="Chiffres clés">
+      <div class="stat"><b>106</b><span>tests Kotlin (106/106)</span></div>
+      <div class="stat"><b>19</b><span>tests Python (19/19)</span></div>
+      <div class="stat"><b>13</b><span>chapitres de note CTC</span></div>
+      <div class="stat"><b>4</b><span>familles de plans et métrés</span></div>
+    </div>
+  </div>
+
+  <section class="block" id="telechargements">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="kicker">Téléchargement direct</p>
+          <h2>Dernière version publiée</h2>
+        </div>
+        <p id="release-status" aria-live="polite"><span class="spinner" aria-hidden="true"></span> Recherche de la dernière release…</p>
+      </div>
+
+      <div class="downloads" id="release-assets">
+        <article class="dl-card recommended placeholder">
+          <div class="dl-top">
+            <div class="dl-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+            <div>
+              <h3 class="dl-name">Archilab RPA2024 Studio <span class="tag">Recommandé</span></h3>
+              <div class="dl-tag">Application Kotlin / Compose Desktop</div>
+            </div>
+          </div>
+          <p class="dl-desc">Interface complète, modules experts, note de calcul Word/PDF, plans DXF et DQE.</p>
+          <div class="dl-meta"><span>Windows 10/11 x64</span><span>Installateur autonome</span></div>
+          <a class="btn btn-primary" data-release-link href="https://github.com/luxecham/Archilab-RPA2024-Studio/releases/latest" rel="noopener">Voir la release</a>
+        </article>
+
+        <article class="dl-card python placeholder">
+          <div class="dl-top">
+            <div class="dl-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+            </div>
+            <div>
+              <h3 class="dl-name">Archilab RPA2024 Python</h3>
+              <div class="dl-tag">Exécutable autonome CustomTkinter</div>
+            </div>
+          </div>
+          <p class="dl-desc">Version légère pour postes sans Java : imports ETABS/SAFE, note Word/PDF, plans DXF/SVG.</p>
+          <div class="dl-meta"><span>Windows 10/11 x64</span><span>Un seul fichier .exe</span></div>
+          <a class="btn btn-ghost" data-release-link href="https://github.com/luxecham/Archilab-RPA2024-Studio/releases/latest" rel="noopener">Voir la release</a>
+        </article>
+      </div>
+
+      <p class="checksum">
+        <span>Empreintes SHA-256 disponibles dans chaque release.</span>
+        <code>SHA256SUMS.txt</code>
+      </p>
+    </div>
+  </section>
+
+  <section class="block" id="produits">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="kicker">Deux applications</p>
+          <h2>Le même socle normatif, deux déploiements</h2>
+        </div>
+        <p>Choisissez l'application selon les contraintes du poste. Les deux lisent les exports ETABS/SAFE et produisent une note de calcul.</p>
+      </div>
+
+      <div class="products">
+        <article class="product">
+          <h3>Archilab RPA2024 Studio</h3>
+          <div class="sub">Kotlin 2.0 · Compose Desktop · JDK 21 embarqué</div>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Ingestion croisée ETABS + SAFE et audit de vérifiabilité des données</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Moteurs autonomes : ferraillage commercial, auto-redimensionnement 5 cm, fondations</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Note CTC 13 chapitres avec équations OMML natives et captures contrôlées</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Plans DXF coffrage / ferraillage / nomenclature, DQE acier XLSX</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Persistance SQLite multi-projets et pipeline « un clic »</li>
+          </ul>
+        </article>
+
+        <article class="product python">
+          <h3>Archilab RPA2024 Python</h3>
+          <div class="sub">Python 3 · CustomTkinter · PyInstaller</div>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Lecture des exports ETABS/SAFE TXT, XLSX et MDB, y compris bases Access</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Vérifications RPA 2024 / BAEL : modal, ν, dérives, P-Delta, poteaux, poutres, voiles</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Note Word/PDF de 13 chapitres avec 21 emplacements de captures</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Plans DXF/SVG et nomenclature, sans dépendance Java</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Un seul fichier .exe, aucun interpréteur à installer</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="fonctionnalites">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="kicker">Chaîne de calcul</p>
+          <h2>De l'effort importé au livrable</h2>
+        </div>
+        <p>Chaque étape est traçable : fichier source, combinaison, formule normative et statut de contrôle.</p>
+      </div>
+
+      <div class="features">
+        <article class="feature">
+          <div class="num">01 / INGESTION</div>
+          <h3>ETABS et SAFE réunis</h3>
+          <p>Topologie, sections, matériaux, résultats modaux, efforts et ressorts de sol lus dans les exports, sans ressaisie.</p>
+        </article>
+        <article class="feature">
+          <div class="num">02 / AUDIT</div>
+          <h3>Vérifiabilité avant calcul</h3>
+          <p>Équilibre global, complétude modale, MSE/MDS, dérives, P-Delta et cohérence SAFE. Verdict explicite : vérifiable ou non.</p>
+        </article>
+        <article class="feature">
+          <div class="num">03 / SISMIQUE</div>
+          <h3>RPA 2024 appliqué</h3>
+          <p>Spectre selon zone et site, coefficients R et Q, effort tranchant à la base, dérives νA et effets du second ordre.</p>
+        </article>
+        <article class="feature">
+          <div class="num">04 / BÉTON ARMÉ</div>
+          <h3>BAEL 91 et sections réelles</h3>
+          <p>Poteaux, poutres, voiles, semelles filantes, sections en T, poinçonnement et choix de barres commerciales constructibles.</p>
+        </article>
+        <article class="feature">
+          <div class="num">05 / DOCUMENT</div>
+          <h3>Note CTC complète</h3>
+          <p>13 chapitres, hypothèses, tableaux, équations natives, figures techniques et captures de logiciel associées manuellement.</p>
+        </article>
+        <article class="feature">
+          <div class="num">06 / EXÉCUTION</div>
+          <h3>Plans et quantités</h3>
+          <p>Plans de coffrage, ferraillage et nomenclature en DXF, plus le DQE acier en XLSX pour l'estimation.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="installation">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="kicker">Installation</p>
+          <h2>Trois étapes, aucun outil de build</h2>
+        </div>
+        <p>Les deux exécutables sont autonomes. Git, Java et Python ne sont nécessaires que pour compiler depuis les sources.</p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <h3>Télécharger</h3>
+          <p>Choisissez l'installateur Studio ou l'exécutable Python dans la dernière release.</p>
+        </div>
+        <div class="step">
+          <h3>Vérifier l'empreinte</h3>
+          <p>Comparez le SHA-256 du fichier avec <code>SHA256SUMS.txt</code> avant exécution.</p>
+        </div>
+        <div class="step">
+          <h3>Lancer</h3>
+          <p>Installez le Studio ou démarrez directement l'exécutable Python, puis importez vos exports ETABS/SAFE.</p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        <div>
+          <strong>SmartScreen :</strong> les binaires ne sont pas signés numériquement. Si Windows affiche un avertissement,
+          ouvrez « Informations supplémentaires » puis « Exécuter quand même » après avoir contrôlé l'empreinte SHA-256.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="documentation">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="kicker">Documentation</p>
+          <h2>Comprendre et vérifier</h2>
+        </div>
+        <p>Architecture des moteurs, journal d'audit, limites connues et historique des versions.</p>
+      </div>
+
+      <div class="doc-grid">
+        <div class="doc-links">
+          <a class="doc-link" href="https://github.com/luxecham/Archilab-RPA2024-Studio#readme" rel="noopener">
+            <div>Guide d'utilisation <span>Import, captures, note de calcul, build</span></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          </a>
+          <a class="doc-link" href="https://github.com/luxecham/Archilab-RPA2024-Studio/blob/main/EXPERT_ENGINE.md" rel="noopener">
+            <div>Moteurs experts <span>Ingestion croisée, audit, ferraillage autonome</span></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          </a>
+          <a class="doc-link" href="https://github.com/luxecham/Archilab-RPA2024-Studio/blob/main/AUDIT_LOOP.md" rel="noopener">
+            <div>Journal d'audit <span>Contrôles, itérations et limites assumées</span></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          </a>
+          <a class="doc-link" href="https://github.com/luxecham/Archilab-RPA2024-Studio/blob/main/CHANGELOG.md" rel="noopener">
+            <div>Historique <span>Versions 1.0 à 1.7.0</span></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          </a>
+          <a class="doc-link" href="https://github.com/luxecham/Archilab-RPA2024-Studio/releases" rel="noopener">
+            <div>Toutes les releases <span>Binaires, notes et empreintes SHA-256</span></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          </a>
+        </div>
+
+        <aside class="limits">
+          <h3>Limites de la version 1.7.0</h3>
+          <ul>
+            <li>Validation sur exports de référence et maquettes de démonstration ; pas de session live ETABS/SAFE/AutoCAD revendiquée.</li>
+            <li>Un changement de section impose une réanalyse dans ETABS/SAFE pour redistribuer les efforts.</li>
+            <li>Les captures de projet sont associées manuellement ou extraites d'un DOCX ; elles ne sont jamais inventées.</li>
+            <li>Les résultats restent soumis à la validation d'un ingénieur qualifié et de l'autorité de contrôle.</li>
+          </ul>
+        </aside>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="foot-brand">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#0f1726" stroke="#1e2c44"/>
+          <path d="M14 50V26l10-8 10 8v24M34 50V32l8-6 8 6v18" fill="none" stroke="#f0a33c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Archilab RPA2024 Studio
+      </div>
+      <div class="disclaimer">
+        Outil d'aide à la justification structurale. Il ne remplace ni l'ingénieur responsable
+        ni le contrôle technique. © Archilab — tous droits réservés.
+      </div>
+    </div>
+    <div>
+      <a href="https://github.com/luxecham/Archilab-RPA2024-Studio" rel="noopener">Code source</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/luxecham/Archilab-RPA2024-Studio/issues" rel="noopener">Signaler un problème</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/luxecham/Archilab-RPA2024-Studio/releases" rel="noopener">Releases</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var REPO = "luxecham/Archilab-RPA2024-Studio";
+  var API = "https://api.github.com/repos/" + REPO + "/releases/latest";
+  var RELEASES = "https://github.com/" + REPO + "/releases";
+  var statusEl = document.getElementById("release-status");
+  var assetsEl = document.getElementById("release-assets");
+
+  function formatSize(bytes) {
+    if (!bytes && bytes !== 0) return "";
+    var mb = bytes / (1024 * 1024);
+    if (mb >= 1) return mb.toFixed(1).replace(".", ",") + " Mo";
+    return Math.max(1, Math.round(bytes / 1024)) + " Ko";
+  }
+
+  function formatDate(iso) {
+    try {
+      return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+    } catch (e) { return ""; }
+  }
+
+  function setStatus(text, spinning) {
+    statusEl.textContent = "";
+    if (spinning) {
+      var dot = document.createElement("span");
+      dot.className = "spinner";
+      dot.setAttribute("aria-hidden", "true");
+      statusEl.appendChild(dot);
+    }
+    statusEl.appendChild(document.createTextNode(text));
+  }
+
+  function pickAsset(assets, marker) {
+    for (var i = 0; i < assets.length; i++) {
+      var name = assets[i].name || "";
+      if (name.toLowerCase().indexOf(marker) !== -1 && /\.exe$/i.test(name)) return assets[i];
+    }
+    return null;
+  }
+
+  function card(options) {
+    var article = document.createElement("article");
+    article.className = "dl-card" + (options.python ? " python" : " recommended");
+
+    var top = document.createElement("div");
+    top.className = "dl-top";
+
+    var icon = document.createElement("div");
+    icon.className = "dl-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = options.python
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+
+    var head = document.createElement("div");
+    var h3 = document.createElement("h3");
+    h3.className = "dl-name";
+    h3.textContent = options.title;
+    if (!options.python) {
+      var tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "Recommandé";
+      h3.appendChild(document.createTextNode(" "));
+      h3.appendChild(tag);
+    }
+    var sub = document.createElement("div");
+    sub.className = "dl-tag";
+    sub.textContent = options.subtitle;
+    head.appendChild(h3);
+    head.appendChild(sub);
+
+    top.appendChild(icon);
+    top.appendChild(head);
+
+    var desc = document.createElement("p");
+    desc.className = "dl-desc";
+    desc.textContent = options.description;
+
+    var meta = document.createElement("div");
+    meta.className = "dl-meta";
+    [options.size, "Windows 10/11 x64", options.date].forEach(function (value) {
+      if (!value) return;
+      var span = document.createElement("span");
+      span.textContent = value;
+      meta.appendChild(span);
+    });
+
+    var link = document.createElement("a");
+    link.className = "btn " + (options.python ? "btn-ghost" : "btn-primary");
+    link.href = options.url;
+    link.rel = "noopener";
+    link.textContent = options.cta;
+
+    article.appendChild(top);
+    article.appendChild(desc);
+    article.appendChild(meta);
+    article.appendChild(link);
+    return article;
+  }
+
+  function render(release) {
+    var assets = release.assets || [];
+    var studio = pickAsset(assets, "studio");
+    var python = pickAsset(assets, "python");
+    var date = formatDate(release.published_at || release.created_at);
+
+    assetsEl.textContent = "";
+    assetsEl.appendChild(card({
+      title: "Archilab RPA2024 Studio",
+      subtitle: "Application Kotlin / Compose Desktop",
+      description: "Interface complète, modules experts, note de calcul Word/PDF, plans DXF et DQE.",
+      size: studio ? formatSize(studio.size) : "",
+      date: date,
+      url: studio ? studio.browser_download_url : release.html_url,
+      cta: studio ? "Télécharger l'installateur" : "Voir la release"
+    }));
+    assetsEl.appendChild(card({
+      python: true,
+      title: "Archilab RPA2024 Python",
+      subtitle: "Exécutable autonome CustomTkinter",
+      description: "Version légère pour postes sans Java : imports ETABS/SAFE, note Word/PDF, plans DXF/SVG.",
+      size: python ? formatSize(python.size) : "",
+      date: date,
+      url: python ? python.browser_download_url : release.html_url,
+      cta: python ? "Télécharger l'exécutable" : "Voir la release"
+    }));
+
+    var primary = studio ? studio.browser_download_url : release.html_url;
+    var links = document.querySelectorAll("[data-release-link]");
+    for (var i = 0; i < links.length; i++) links[i].href = primary;
+
+    var versionEl = document.getElementById("hero-version");
+    if (versionEl && release.tag_name) versionEl.textContent = release.tag_name.replace(/^v/, "");
+
+    setStatus("Version " + (release.tag_name || "") + " publiée le " + date, false);
+  }
+
+  function fallback(error) {
+    setStatus("Liste des fichiers indisponible — ouverture de la page des releases.", false);
+    assetsEl.querySelectorAll("a.btn").forEach(function (link) {
+      link.href = RELEASES + "/latest";
+    });
+    if (window.console && console.warn) console.warn("Release GitHub indisponible:", error);
+  }
+
+  fetch(API, { headers: { "Accept": "application/vnd.github+json" } })
+    .then(function (response) {
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      return response.json();
+    })
+    .then(render)
+    .catch(fallback);
+})();
+</script>
+</body>
+</html>

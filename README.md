@@ -1,4 +1,8 @@
-# Archilab RPA2024 NoteDeCalcul Studio — Kotlin / Compose Desktop
+# Archilab RPA2024 NoteDeCalcul Studio
+
+[![CI](https://github.com/luxecham/Archilab-RPA2024-Studio/actions/workflows/ci.yml/badge.svg)](https://github.com/luxecham/Archilab-RPA2024-Studio/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/luxecham/Archilab-RPA2024-Studio?label=release)](https://github.com/luxecham/Archilab-RPA2024-Studio/releases/latest)
+[![Site](https://img.shields.io/badge/site-t%C3%A9l%C3%A9chargement-f0a33c)](https://luxecham.github.io/Archilab-RPA2024-Studio/)
 
 Application de calcul et de note de calcul pour l'Algérie : **RPA 2024 (DTR BC 2.48)**,
 **BAEL 91 révisé 99**, **CBA 93**, **DTR BC 2.2** et **DTR BC 2.33.1**.
@@ -6,7 +10,24 @@ Application de calcul et de note de calcul pour l'Algérie : **RPA 2024 (DTR BC 
 Version courante : **1.7.0** — voir [CHANGELOG.md](CHANGELOG.md) et
 [AUDIT_LOOP.md](AUDIT_LOOP.md).
 
-## Lancer
+## Téléchargement
+
+Aucune compilation n'est nécessaire : les binaires Windows sont publiés dans
+[la dernière release](https://github.com/luxecham/Archilab-RPA2024-Studio/releases/latest).
+Le site [luxecham.github.io/Archilab-RPA2024-Studio](https://luxecham.github.io/Archilab-RPA2024-Studio/)
+présente les deux applications et leurs empreintes SHA-256.
+
+| Application | Fichier | Prérequis |
+| --- | --- | --- |
+| Kotlin / Compose Desktop | `ArchilabRPA2024-Studio-1.7.0-Windows.exe` | Windows 10/11 x64 |
+| Python autonome | `ArchilabRPA2024-Python-1.7.0-Windows.exe` | Windows 10/11 x64 |
+
+Les binaires ne sont pas signés : contrôlez le SHA-256 avant exécution, puis
+autorisez le lancement via SmartScreen si nécessaire.
+
+La version Python est documentée dans [python_app/README.md](python_app/README.md).
+
+## Lancer (depuis les sources)
 
 ```bat
 set JAVA_HOME=C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot
