@@ -80,7 +80,7 @@ kotlin {
 // Configuration du packaging de l'exécutable Windows Desktop
 compose.desktop {
     application {
-        mainClass = "com.archilab.rpa2024.ArchilabMainKt"
+        mainClass = "com.archilab.rpa2024.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
@@ -106,4 +106,13 @@ compose.desktop {
             }
         }
     }
+}
+
+tasks.register<JavaExec>("runPipeline") {
+    group = "application"
+    description = "Execute le pipeline documentaire CTC en ligne de commande"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.archilab.rpa2024.ArchilabMainKt")
+    standardOutput = System.out
+    errorOutput = System.err
 }
