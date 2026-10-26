@@ -10,27 +10,34 @@ plugins {
 group = "com.archilab.rpa2024"
 version = "1.0.0"
 
-kotlin {
-    jvmToolchain(21)
+repositories {
+    mavenCentral()
+    google()
+    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
 }
 
 dependencies {
-    // Compose Desktop
+    // 1. Dépendances Compose Desktop (UI Windows Standalone)
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
 
-    // Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-
-    // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
-
-    // Apache POI for Excel and Word (.docx, .xlsx, .xls)
+    // 2. Moteur de génération documentaire OpenXML Word (.docx) & OMML
+    // Version 5.3.0 avec poi-ooxml-full indispensable pour manipuler le schéma XML OpenXML complet
     implementation("org.apache.poi:poi:5.3.0")
     implementation("org.apache.poi:poi-ooxml:5.3.0")
     implementation("org.apache.poi:poi-ooxml-full:5.3.0")
+    implementation("org.apache.xmlbeans:xmlbeans:5.2.1")
+
+    // 3. Traitement des fichiers tabulaires (ETABS / SAFE Excel exports)
+    implementation("org.apache.commons:commons-csv:1.11.0")
+
+    // 4. Coroutines pour l'exécution asynchrone du pipeline de calcul
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
+
+    // Serialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     // Apache PDFBox for PDF generation
     implementation("org.apache.pdfbox:pdfbox:3.0.3")
@@ -52,10 +59,10 @@ dependencies {
     // Logging
     implementation("org.slf4j:slf4j-simple:2.0.16")
 
-    // Testing
-    testImplementation(kotlin("test-junit5"))
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.3")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.11.3")
+    // 5. Banc d'essai et tests d'intégration unitaires
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.test {
@@ -66,21 +73,36 @@ tasks.test {
     }
 }
 
+kotlin {
+    jvmToolchain(21)
+}
+
+// Configuration du packaging de l'exécutable Windows Desktop
 compose.desktop {
     application {
-        mainClass = "com.archilab.rpa2024.MainKt"
+        mainClass = "com.archilab.rpa2024.ArchilabMainKt"
+
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "RPA2024Desktop"
+            targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            packageName = "Archilab-RPA2024-Studio"
             packageVersion = "1.0.0"
-            description = "Logiciel d'ingénierie parasismique RPA 2024 & Importateur ETABS"
-            vendor = "ArchiLab Engineering"
+            description = "Logiciel d'automatisation de calcul parasismique RPA 2024 et note de calcul CTC"
+            vendor = "BET ARCHILAB"
+            copyright = "© 2026 BET ARCHILAB. Tous droits réservés."
 
             windows {
-                menuGroup = "ArchiLab"
-                upgradeUuid = "b3b40441-fc9a-4297-8c0c-46da09602145"
-                perUserInstall = true
+                menuGroup = "BET Archilab"
+                perUserInstall = false
+                shortcut = true
                 dirChooser = true
+                // Options JVM pour le traitement lourd de modèles volumineux
+                jvmArgs.addAll(
+                    listOf(
+                        "-Xms512m",
+                        "-Xmx4096m",
+                        "-Dfile.encoding=UTF-8"
+                    )
+                )
             }
         }
     }

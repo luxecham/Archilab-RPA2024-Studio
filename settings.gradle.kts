@@ -1,11 +1,9 @@
-rootProject.name = "rpa2024-engine"
-
 pluginManagement {
     repositories {
         google()
-        gradlePluginPortal()
         mavenCentral()
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+        gradlePluginPortal()
     }
 }
 
@@ -16,3 +14,5 @@ dependencyResolutionManagement {
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
+
+rootProject.name = "Archilab-RPA2024-Studio"
