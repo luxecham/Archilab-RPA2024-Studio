@@ -21,6 +21,9 @@ enum class SeismicZone(
     ZONE_V("V", "Élevée", 0.25),
     ZONE_VI("VI", "Élevée", 0.30);
 
+    val accelA: Double get() = coeffA
+    val minColDimCm: Double get() = if (this in listOf(ZONE_IV, ZONE_V, ZONE_VI)) 30.0 else 25.0
+
     companion object {
         fun fromCode(code: String): SeismicZone =
             entries.find { it.code.equals(code.trim(), ignoreCase = true) }
@@ -61,9 +64,16 @@ enum class ImportanceGroup(
     val nuATabulated: Double
 ) {
     GROUP_1A("1A", "Bâtiments d'importance vitale (casernes, police, hôpitaux, PC de crise)", 1.40, 1178, 0.39),
+    GROUPE_1A("1A", "Bâtiments d'importance vitale (casernes, police, hôpitaux, PC de crise)", 1.40, 1178, 0.39),
     GROUP_1B("1B", "Bâtiments de grande importance (écoles, grands rassemblements)", 1.20, 777, 0.46),
+    GROUPE_1B("1B", "Bâtiments de grande importance (écoles, grands rassemblements)", 1.20, 777, 0.46),
     GROUP_2("2", "Bâtiments d'usage courant (habitations, bureaux courants)", 1.00, 475, 0.55),
-    GROUP_3("3", "Bâtiments de faible importance (hangars agricoles, constructions temporaires)", 0.80, 260, 0.69);
+    GROUPE_2("2", "Bâtiments d'usage courant (habitations, bureaux courants)", 1.00, 475, 0.55),
+    GROUP_3("3", "Bâtiments de faible importance (hangars agricoles, constructions temporaires)", 0.80, 260, 0.69),
+    GROUPE_3("3", "Bâtiments de faible importance (hangars agricoles, constructions temporaires)", 0.80, 260, 0.69);
+
+    val factorI: Double get() = coeffI
+    val nuA: Double get() = nuATabulated
 
     companion object {
         fun fromCode(code: String): ImportanceGroup =

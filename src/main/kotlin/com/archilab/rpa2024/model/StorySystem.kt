@@ -12,6 +12,12 @@ data class StoryLevel(
     val elevationZk: Double,
     val isPenthouseOrCage: Boolean = false
 ) : Comparable<StoryLevel> {
+    val name: String get() = storyName
+    val heightMeters: Double get() = heightHk
+    val elevationMeters: Double get() = elevationZk
+
+    constructor(name: String, heightMeters: Double, elevationMeters: Double) : this(name, heightMeters, elevationMeters, false)
+
     override fun compareTo(other: StoryLevel): Int = elevationZk.compareTo(other.elevationZk)
 }
 
